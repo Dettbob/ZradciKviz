@@ -460,6 +460,13 @@ body[data-view=game]{padding-left:max(16px,env(safe-area-inset-left,0px)); paddi
 .sec{font:700 .75rem var(--font-display); color:var(--gold); text-transform:uppercase; letter-spacing:.18em; margin-top:4px}
 #toast{position:fixed; left:50%; bottom:calc(20px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%); z-index:60; background:linear-gradient(180deg,var(--wine2),var(--wine)); border:1px solid var(--gold); color:var(--gold-hi); padding:9px 18px; font:600 .9rem var(--font-display); letter-spacing:.04em; max-width:90vw; box-shadow:0 8px 30px #000}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+html.mob .board.allb{grid-template-columns:repeat(var(--cn,5),minmax(0,1fr))!important; grid-template-rows:auto repeat(var(--rn,1),minmax(0,1fr))!important}
+.bet-row .judge .btn.on{outline:2px solid var(--gold-hi); outline-offset:1px}
+html.mob .allj{justify-content:flex-start!important; overflow:auto; gap:6px!important}
+html.mob .allj .ans-text{font-size:1.7rem!important}
+html.mob .allj .qtext{font-size:1rem!important}
+html.mob .allj .bet-row{padding:4px 8px!important}
+html.mob .allj .btn.big{flex:none}
 </style>
 
 <div id="app"></div>
@@ -479,8 +486,9 @@ const $=(s,r)=>(r||document).querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
 const clone=o=>JSON.parse(JSON.stringify(o));
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
-const APP_VERSION='1.7';
+const APP_VERSION='1.8';
 const CHANGELOG=[
+ ['1.8','Nový typ kola „Všichni odpovídají“: jedno téma, všechny otázky za stejné body, odpovídají všichni na papír a host body přidělí. Lze nastavit, jestli za špatnou odpověď body ubývají (štít chrání).','V nastavení hráče (✎) jde přidat nebo odebrat štít.','Testovací pack má jako 2. kolo kolo pro všechny.'],
  ['1.7','Úprava pro mobily: na telefonu se rozložení přizpůsobí (menu, herní plán, hráči, ovládání). Na počítači zůstává vše beze změny.','Na mobilu se ve hře nezobrazuje postava s loučí.'],
  ['1.6','Tlačítko ztlumení vedle ikony zvuku (vypne a zapne všechny zvuky).','Hráči na dolní liště jsou vycentrovaní.','Pozadí pod hráči se plynule ztmavuje do černé.','Testovací pack má štít i v tématu 3 za 30 000.'],
  ['1.5','Nový typ otázky Štít: hráč, který ho vybere, získá štít a při příští špatné odpovědi neztratí body. Bez textu a odpovědi.','Hráč se štítem má u karty ikonu štítu.','Všechna témata na začátku kola odlétají najednou a rychleji, oprava animace mizení.','Hlasitější zvuky témat, větší číslo verze, tlačítko „Hrát“ v menu.'],
@@ -544,13 +552,15 @@ function readJSON(k){const r=S.get(k); if(!r) return null; try{return JSON.parse
 function qNew(price,type){return {price:price,type:type||'normal',text:'',answer:'',comment:'',image:null,time:null};}
 function makeTestPack(){
   const special={'0:1:2':'cat','0:2:3':'auction','0:3:1':'safe','0:2:2':'shield','0:4:0':'shield','1:0:4':'cat','1:4:0':'auction','1:2:2':'shield'};
-  const rounds=[0,1].map(r=>({
-    name:'Kolo '+(r+1),
+  const mk=k=>({
+    name:'Kolo '+(k===0?1:3),
     themes:[0,1,2,3,4].map(t=>({
       name:'Téma '+(t+1),
-      questions:[0,1,2,3,4].map(q=>({price:(r+1)*10000*(q+1),type:special[r+':'+t+':'+q]||'normal',text:special[r+':'+t+':'+q]==='shield'?'':'Test otázka',answer:special[r+':'+t+':'+q]==='shield'?'':'Test odpověď',comment:'',image:null,time:null}))
+      questions:[0,1,2,3,4].map(q=>({price:(k+1)*10000*(q+1),type:special[k+':'+t+':'+q]||'normal',text:special[k+':'+t+':'+q]==='shield'?'':'Test otázka',answer:special[k+':'+t+':'+q]==='shield'?'':'Test odpověď',comment:'',image:null,time:null}))
     }))
-  }));
+  });
+  const all={name:'Kolo 2',kind:'all',penalty:true,price:10000,themes:[{name:'Společné téma',questions:[0,1,2,3,4,5].map(q=>({price:10000,type:'normal',text:'Test otázka pro všechny '+(q+1),answer:'Test odpověď',comment:'',image:null,time:null}))}]};
+  const rounds=[mk(0),all,mk(1)];
   return {id:'test',name:'Testovací pack',builtin:true,rounds:rounds,
     final:{enabled:true,themes:[0,1,2,3,4].map(i=>({name:'Finálové téma '+(i+1),text:'Test otázka',answer:'Test odpověď',comment:'',image:null}))}};
 }
@@ -565,13 +575,14 @@ function normalizePack(p){
   const out={id:uid(),name:str(p.name)||'Importovaný pack',rounds:[],final:{enabled:false,themes:[]}};
   p.rounds.forEach((r,ri)=>{
     r=r||{};
-    out.rounds.push({name:str(r.name)||('Kolo '+(ri+1)),themes:(Array.isArray(r.themes)?r.themes:[]).map((t,ti)=>{
+    const isAll=r.kind==='all';
+    out.rounds.push(Object.assign({name:str(r.name)||('Kolo '+(ri+1))},isAll?{kind:'all',penalty:!!r.penalty,price:Math.max(0,Math.round(Number(r.price)||10000))}:{}, {themes:(Array.isArray(r.themes)?r.themes:[]).map((t,ti)=>{
       t=t||{};
       return {name:str(t.name)||('Téma '+(ti+1)),questions:(Array.isArray(t.questions)?t.questions:[]).map(q=>{
         q=q||{};
-        return {price:Math.max(0,Math.round(Number(q.price)||0)),type:okType(q.type)?q.type:'normal',text:str(q.text),answer:str(q.answer),comment:str(q.comment),image:img(q.image),time:Number(q.time)>0?Math.round(Number(q.time)):null};
+        return {price:Math.max(0,Math.round(Number(q.price)||0)),type:(isAll||q.type==='all')?'normal':(okType(q.type)?q.type:'normal'),text:str(q.text),answer:str(q.answer),comment:str(q.comment),image:img(q.image),time:Number(q.time)>0?Math.round(Number(q.time)):null};
       })};
-    })});
+    })}));
   });
   if(p.final&&Array.isArray(p.final.themes)){
     out.final.enabled=!!p.final.enabled;
@@ -1246,7 +1257,7 @@ function viewEditor(root){
   }else if(pack.builtin){
     main.append(h('div',{class:'card',style:'display:flex;flex-direction:column;gap:12px'},
       h('h2',{text:pack.name}),
-      h('p',{class:'muted',text:'Všechny otázky jsou „Test otázka“ a všechny odpovědi „Test odpověď“. Pár otázek má speciální typ (Kočka ve pytli, Aukce, Bez rizika, Štít), aby šly vyzkoušet všechny režimy. Pack nejde upravit, ale můžeš z něj vytvořit vlastní kopii.'}),
+      h('p',{class:'muted',text:'Všechny otázky jsou „Test otázka“ a všechny odpovědi „Test odpověď“. Pár otázek má speciální typ (Kočka ve pytli, Aukce, Bez rizika, Štít) a 2. kolo je kolo, kde odpovídají všichni, aby šly vyzkoušet všechny režimy. Pack nejde upravit, ale můžeš z něj vytvořit vlastní kopii.'}),
       h('div',{class:'row'},
         h('button',{class:'btn primary',onclick:()=>startWith(pack.id)},'Hrát tento pack'),
         h('button',{class:'btn',onclick:()=>duplicatePack(pack)},'Duplikovat do vlastního packu'))));
@@ -1273,12 +1284,35 @@ function editorMain(main,pack){
   const tabs=h('div',{class:'tabs'});
   pack.rounds.forEach((r,i)=>tabs.append(h('button',{class:'tab'+(app.edit.tab===i?' on':''),onclick:()=>{app.edit.tab=i;render();}},r.name||('Kolo '+(i+1)))));
   tabs.append(h('button',{class:'tab',onclick:()=>{pack.rounds.push({name:'Kolo '+(pack.rounds.length+1),themes:[1,2,3].map(i=>({name:'Téma '+i,questions:[10000,20000,30000,40000,50000].map(p=>qNew(p))}))});app.edit.tab=pack.rounds.length-1;flushPacks();render();}},'+ kolo'));
+  tabs.append(h('button',{class:'tab',title:'Kolo, kde odpovídají všichni hráči najednou',onclick:()=>{pack.rounds.push({name:'Kolo '+(pack.rounds.length+1),kind:'all',penalty:false,price:10000,themes:[{name:'Téma',questions:[1,2,3,4,5].map(()=>qNew(10000))}]});app.edit.tab=pack.rounds.length-1;flushPacks();render();}},'+ kolo pro všechny'));
   tabs.append(h('button',{class:'tab'+(app.edit.tab==='final'?' on':''),onclick:()=>{app.edit.tab='final';render();}},'Finále'));
   main.append(tabs);
   if(app.edit.tab==='final') finalEditor(main,pack); else roundEditor(main,pack,app.edit.tab);
 }
+function allRoundEditor(main,pack,ri){
+  const r=pack.rounds[ri]; const t=r.themes[0]||(r.themes[0]={name:'Téma',questions:[]});
+  const card=h('div',{class:'card',style:'display:flex;flex-direction:column;gap:10px'});
+  card.append(h('div',{class:'row'},
+    h('label',{class:'f grow'},'Název kola',h('input',{class:'txt',value:r.name,maxlength:50,oninput:e=>{r.name=e.target.value;scheduleSave();}})),
+    h('button',{class:'btn bad',onclick:()=>confirmBox('Smazat celé kolo „'+r.name+'“ se všemi otázkami?','Smazat kolo',()=>{pack.rounds.splice(ri,1);app.edit.tab=pack.rounds.length?Math.max(0,ri-1):'final';flushPacks();render();},true)},'Smazat kolo')));
+  card.append(h('p',{class:'muted',style:'margin:0',text:'Kolo pro všechny: jedno téma, všechny otázky mají stejnou hodnotu. Otázku si přečte host, všichni hráči napíšou odpověď na papír a host je pak vyhodnotí a přidělí body.'}));
+  card.append(h('div',{class:'row'},
+    h('label',{class:'f grow'},'Téma',h('input',{class:'txt',value:t.name,maxlength:40,oninput:e=>{t.name=e.target.value;scheduleSave();}})),
+    h('label',{class:'f'},'Hodnota každé otázky',numField(r.price||10000,0,1000000,50,v=>{r.price=v;t.questions.forEach(q=>{q.price=v;});flushPacks();})),
+    h('label',{class:'f'},'Špatná odpověď',h('select',{value:r.penalty?'1':'0',onchange:e=>{r.penalty=e.target.value==='1';flushPacks();}},h('option',{value:'0',text:'nic se neděje',selected:!r.penalty}),h('option',{value:'1',text:'body se odečítají (štít ochrání)',selected:!!r.penalty})))));
+  const row=h('div',{class:'ed-row'});
+  t.questions.forEach((q,qi)=>{
+    row.append(h('button',{class:'qcell',title:'Upravit otázku',onclick:()=>openQEditor(pack,r,0,qi)},
+      h('span',{class:'pr',text:'#'+(qi+1)}),(!q.text||!q.answer)&&h('span',{class:'dot',title:'Chybí text otázky nebo odpověď'})));
+  });
+  row.append(h('button',{class:'btn sm',onclick:()=>{t.questions.push(qNew(r.price||10000));flushPacks();render();}},'+ otázka'));
+  card.append(row);
+  card.append(h('p',{class:'muted',style:'font-size:.85rem;margin:0',text:'Klikni na číslo otázky a uprav ji. Oranžová tečka značí chybějící text nebo odpověď.'}));
+  main.append(card);
+}
 function roundEditor(main,pack,ri){
   const r=pack.rounds[ri];
+  if(r.kind==='all') return allRoundEditor(main,pack,ri);
   const card=h('div',{class:'card',style:'display:flex;flex-direction:column;gap:10px'});
   card.append(h('div',{class:'row'},
     h('label',{class:'f grow'},'Název kola',h('input',{class:'txt',value:r.name,maxlength:50,oninput:e=>{r.name=e.target.value;scheduleSave();}})),
@@ -1330,8 +1364,8 @@ function openQEditor(pack,r,ti,qi){
   function sync(){ const sd=q.type==='shield'; qFields.hidden=sd; qFields.style.display=sd?'none':'flex'; shieldNote.hidden=!sd; shieldNote.style.display=sd?'flex':'none'; timeLbl.hidden=sd; timeLbl.style.display=sd?'none':''; }
   const body=h('div',{class:'mbody'},
     h('div',{class:'row'},
-      h('label',{class:'f'},'Cena',numField(q.price,0,1000000,50,v=>{q.price=v;})),
-      h('label',{class:'f grow'},'Typ otázky',typeSel),
+      r.kind!=='all'&&h('label',{class:'f'},'Cena',numField(q.price,0,1000000,50,v=>{q.price=v;})),
+      r.kind!=='all'&&h('label',{class:'f grow'},'Typ otázky',typeSel),
       timeLbl),
     shieldNote,
     qFields,
@@ -1341,11 +1375,11 @@ function openQEditor(pack,r,ti,qi){
         h('button',{class:'btn primary',onclick:()=>{
           if(q.type==='shield'){ q.text=''; q.answer=''; q.comment=''; q.image=null; q.time=null; }
           const qs=r.themes[ti].questions; qs[qi]=q;
-          qs.sort((a,b)=>a.price-b.price);
+          if(r.kind!=='all') qs.sort((a,b)=>a.price-b.price);
           closeModal(); flushPacks(); render();
         }},'Uložit'))));
   sync();
-  openModal(r.themes[ti].name+' · '+fmt(q.price),body,{wide:true});
+  openModal(r.themes[ti].name+' · '+(r.kind==='all'?'otázka '+(qi+1):fmt(q.price)),body,{wide:true});
 }
 function finalEditor(main,pack){
   const f=pack.final;
@@ -1436,7 +1470,7 @@ function viewSetup(root){
 }
 
 /* ---------- game core ---------- */
-const TIMED=['question','finalQ'];
+const TIMED=['question','finalQ','allq'];
 function startGame(pack){
   const s=app.settings;
   const players=[]; const names=new Set();
@@ -1490,6 +1524,7 @@ function pickCell(t,q){
   commit(()=>{
     const qd=curRound().themes[t].questions[q];
     G.cur={t:t,q:q,key:qKey(t,q),price:qd.price,type:qd.type,answerer:null,failed:[],locked:false,result:null,winner:null,target:null,bidder:null};
+    if(curRound().kind==='all'){ G.cur.price=curRound().price||qd.price; G.cur.type='all'; G.cur.marks={}; G.phase='allq'; startTimer(qTime(G.cur)); return; }
     if(qd.type==='shield'){ G.cur.winner=G.chooser; G.cur.result='shield'; G.players[G.chooser].shield=true; G.used[G.cur.key]=true; G.phase='reveal'; }
     else if(qd.type==='cat'){ G.phase='cat'; }
     else if(qd.type==='auction'){ G.phase='auction'; }
@@ -1529,6 +1564,48 @@ function wrong(){
 function revealNoAnswer(){
   if(G.paused) return;
   commit(()=>{G.cur.result='none'; finishQ();});
+}
+function allToJudge(){commit(()=>{G.phase='allj'; stopTimer();});}
+function allConfirm(){
+  const c=G.cur, R=curRound(); const sh=[];
+  commit(()=>{
+    G.players.forEach((p,i)=>{
+      const m=c.marks[i];
+      if(m===true) p.score+=c.price;
+      else if(m===false&&R.penalty){ if(p.shield){p.shield=false; sh.push(i);} else p.score-=c.price; }
+    });
+    G.used[c.key]=true; G.cur=null; G.phase=roundDone()?'roundEnd':'board'; stopTimer();
+  });
+  sfx('ok'); if(sh.length) toast('Štít ochránil: '+sh.map(pname).join(', '));
+}
+function allQView(){
+  const c=G.cur, qd=qdOf(c), R=curRound(), theme=R.themes[c.t].name;
+  return h('div',{class:'qwrap'},
+    qHead(theme,c.price,null),
+    timerBar(),
+    h('div',{class:'qbody'},qd.image&&h('img',{class:'qimg',src:qd.image,alt:''}),h('p',{class:'qtext',text:qd.text||'(prázdná otázka)'})),
+    h('div',{class:'controls'},
+      h('div',{class:'status',text:'Odpovídají všichni – každý napíše odpověď na papír. '+(R.penalty?'Za špatnou odpověď se body odečítají.':'Za špatnou odpověď se nic neděje.')}),
+      h('button',{class:'btn primary big',onclick:allToJudge},'Vyhodnotit odpovědi'),
+      timerButtons(5),
+      h('button',{class:'btn sm ghost',onclick:()=>confirmBox('Zrušit tuto otázku a vrátit ji na plochu bez bodů?','Zrušit otázku',cancelQ)},'Zrušit otázku')));
+}
+function allJView(){
+  const c=G.cur, qd=qdOf(c), R=curRound(), theme=R.themes[c.t].name;
+  const mk=(i,v,label,cls)=>h('button',{class:'btn '+cls+(c.marks[i]===v?' on':''),onclick:()=>tweak(()=>{c.marks[i]=c.marks[i]===v?undefined:v;})},label);
+  return h('div',{class:'center-col allj'},
+    qHead(theme,c.price,null),
+    h('p',{class:'qtext',text:qd.text||''}),
+    h('div',{class:'ans'},h('small',{text:'Správná odpověď'}),h('div',{class:'ans-text',text:qd.answer||'—'}),qd.comment&&h('div',{class:'ans-note',text:qd.comment})),
+    G.players.map((p,i)=>h('div',{class:'bet-row'},h('b',{class:'rn'},avatar(p.icon,i,'sm'),p.shield&&R.penalty?' 🛡 ':' ',pname(i)),
+      h('div',{class:'judge'},
+        mk(i,true,'✓ +'+fmt(c.price),'good'),
+        mk(i,false,R.penalty?(p.shield?'✗ štít ochrání':'✗ −'+fmt(c.price)):'✗ špatně','bad')))),
+    h('div',{class:'row',style:'justify-content:center'},
+      h('button',{class:'btn sm',onclick:()=>tweak(()=>{G.players.forEach((p,i)=>{c.marks[i]=true;});})},'Všichni správně'),
+      h('button',{class:'btn sm',onclick:()=>tweak(()=>{G.players.forEach((p,i)=>{if(c.marks[i]===undefined) c.marks[i]=false;});})},'Neoznačení špatně'),
+      h('button',{class:'btn sm ghost',onclick:()=>commit(()=>{G.phase='allq'; startTimer(G.timeQ);})},'Zpět k otázce')),
+    h('button',{class:'btn primary big',onclick:allConfirm},'Potvrdit a přidat body'));
 }
 function cancelQ(){commit(()=>{G.cur=null; G.phase='board'; stopTimer();});}
 function continueAfterReveal(){commit(()=>{G.cur=null; G.phase=roundDone()?'roundEnd':'board';});}
@@ -1663,7 +1740,8 @@ function introView(){
   const R=curRound();
   if(intro===1) return h('div',{class:'intro i1',onclick:introAdvance},h('div',{class:'ihint',text:'Klikni pro začátek'}));
   const lines=[h('div',{class:'ikicker',style:'--d:.1s',text:'KOLO '+(G.roundIdx+1)}),
-    R.name&&!/^kolo\s*\d+$/i.test(R.name.trim())&&h('div',{class:'iround',style:'--d:.35s',text:R.name}),
+    R.kind==='all'&&h('div',{class:'iround',style:'--d:.35s',text:'Všichni odpovídají'}),
+    R.kind!=='all'&&R.name&&!/^kolo\s*\d+$/i.test(R.name.trim())&&h('div',{class:'iround',style:'--d:.35s',text:R.name}),
     h('div',{class:'idiv',style:'--d:.6s'},STARSVG())];
   R.themes.forEach((t,i)=>lines.push(h('div',{class:'ithm '+(i%2?'r':'l'),style:'--d:'+(.9+i*.42).toFixed(2)+'s',text:t.name||('Téma '+(i+1))})));
   lines.push(h('div',{class:'ihint',style:'--d:'+(1.3+R.themes.length*.42).toFixed(2)+'s',text:'Klikni pro pokračování'}));
@@ -1697,6 +1775,8 @@ function stageView(){
   if(p==='board') st.append(boardView());
   else if(p==='question') st.append(questionView());
   else if(p==='reveal') st.append(revealView());
+  else if(p==='allq') st.append(allQView());
+  else if(p==='allj') st.append(allJView());
   else if(p==='cat') st.append(catView());
   else if(p==='auction') st.append(auctionView());
   else if(p==='roundEnd') st.append(roundEndView());
@@ -1715,6 +1795,17 @@ function boardView(){
   const wrap=h('div',{class:'qwrap'});
   wrap.append(h('div',{class:'turn'},'Vybírá: ',h('b',{text:pname(G.chooser)}),'  ·  klikni na hráče pro změnu'));
   if(!R||!R.themes.length){wrap.append(h('div',{class:'center-col'},h('p',{class:'muted',text:'Toto kolo nemá žádná témata.'}),h('button',{class:'btn primary',onclick:()=>commit(()=>{G.phase='roundEnd';})},'Pokračovat')));return wrap;}
+  if(R.kind==='all'){
+    const t=R.themes[0], n=t.questions.length, cols=Math.max(1,Math.min(n,5)), rows=Math.max(1,Math.ceil(n/cols));
+    wrap.firstChild.replaceChildren('Kolo pro všechny · každá otázka ',h('b',{text:fmt(R.price)}),' · ',R.penalty?'špatná odpověď = mínus body':'špatná odpověď = nic');
+    const g=h('div',{class:'board allb',style:'grid-template-columns:repeat('+cols+',minmax(0,1fr));grid-template-rows:minmax(0,.4fr) repeat('+rows+',minmax(0,1fr));--cn:'+cols+';--rn:'+rows});
+    g.append(h('div',{class:'th',style:'grid-column:1/-1'},h('span',{text:t.name})));
+    t.questions.forEach((q,qi)=>{
+      const key=qKey(0,qi), used=!!G.used[key];
+      g.append(h('button',{class:'cell'+(used?' used':''),'aria-label':'Otázka '+(qi+1),title:used?'Použito, klikni pro vrácení do hry':'',onclick:()=>used?askReopen(key):pickCell(0,qi)},used?'':h('span',{class:'pr',text:String(qi+1),style:'--n:2'})));
+    });
+    wrap.append(g); return wrap;
+  }
   const cols=Math.max(1,...R.themes.map(t=>t.questions.length));
   const grid=h('div',{class:'board',style:'grid-template-columns:minmax(0,1.5fr) repeat('+cols+',minmax(0,1fr));grid-template-rows:repeat('+R.themes.length+',minmax(0,1fr));--tn:'+R.themes.length+';--cn:'+cols});
   R.themes.forEach((t,ti)=>{
@@ -1916,6 +2007,9 @@ function openPlayerModal(i){
       [-10000,-1000,1000,10000].map(d=>h('button',{class:'btn sm',onclick:()=>apply(G.players[i].score+d)},(d>0?'+':'−')+Math.abs(d))),
       h('button',{class:'btn sm',onclick:()=>apply(0)},'Vynulovat')),
     h('div',{class:'row'},h('button',{class:'btn',disabled:G.chooser===i,onclick:()=>{commit(()=>{G.chooser=i;});closeModal();}},'Nastavit jako hráče na tahu')),
+    h('div',{class:'sec',text:'Štít'}),
+    h('div',{class:'row'},h('img',{src:SHIELD_SRC,alt:'',style:'height:40px'}),h('span',{text:p.shield?'Hráč má štít.':'Hráč nemá štít.'}),
+      h('button',{class:'btn',onclick:()=>{commit(()=>{G.players[i].shield=!G.players[i].shield;}); openPlayerModal(i);}},p.shield?'Odebrat štít':'Dát štít')),
     h('div',{class:'sec',text:'Postava'}),
     iconGrid,
     h('div',{class:'row end'},h('button',{class:'btn primary',onclick:closeModal},'Hotovo'))));
