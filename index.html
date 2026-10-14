@@ -165,6 +165,10 @@ label.f > .txt,label.f > textarea,label.f > select{color:var(--text); font-size:
 .clg h4{margin:12px 0 4px; color:var(--gold-hi); font-family:var(--font-display); letter-spacing:.06em}
 .clg ul{margin:0; padding-left:20px}
 .clg li{margin:3px 0; line-height:1.35}
+.abtn.mbtn{right:max(66px,calc(env(safe-area-inset-right,0px) + 58px))}
+.mute-btn{display:inline-flex; align-items:center; justify-content:center}
+.mute-btn.on{color:#e07a6a}
+.mute-btn[hidden]{display:none}
 .abtn{position:fixed; right:max(14px,env(safe-area-inset-right,0px)); bottom:calc(14px + env(safe-area-inset-bottom,0px)); z-index:30; width:44px; height:44px; padding:0; border-radius:50%; font-size:1.2rem; background:#0b0806e6}
 #flash{position:fixed; inset:0; z-index:40; pointer-events:none; opacity:0; mix-blend-mode:screen;
   background:radial-gradient(ellipse at 60% 15%,#d6e4ff,#8aa4ff66 45%,transparent 80%)}
@@ -262,6 +266,8 @@ label.f > .txt,label.f > textarea,label.f > select{color:var(--text); font-size:
 @keyframes spark{0%{opacity:0;transform:translate(0,0)}10%{opacity:1}100%{opacity:0;transform:translate(var(--dx,12px),-95px)}}
 @media (prefers-reduced-motion:reduce){.gside *{animation:none!important}}
 body[data-view=game]{padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,4.5vw); padding-bottom:max(10px,3.2vh)}
+.gbot{position:absolute; left:0; right:0; bottom:0; height:38%; pointer-events:none; opacity:0; transition:opacity 1.4s ease; background:linear-gradient(0deg,#000 0,#000 22%,#000d 42%,#0007 68%,#0000 100%)}
+.bgfx.ui .gbot{opacity:1}
 .gshade{position:absolute; inset:0; pointer-events:none; background:linear-gradient(90deg,transparent 0,transparent 30%,#0006 44%,#0008 100%)}
 .flight{position:absolute; pointer-events:none; mix-blend-mode:screen; animation:flick 2.1s steps(1,end) infinite}
 .flight.fl{left:-8%; top:10%; width:30%; height:90%; background:radial-gradient(ellipse at 0% 70%,#ff7a1ab0,#ff4a0040 45%,transparent 72%)}
@@ -350,7 +356,7 @@ body[data-view=game]{padding-left:max(16px,env(safe-area-inset-left,0px)); paddi
 .rank li.first{border-color:var(--gold-hi); background:linear-gradient(180deg,#2a1118,#12080b)}
 .rank li .sc{margin-left:auto; font:700 1.5rem var(--font-display); font-variant-numeric:tabular-nums; color:var(--gold-hi)}
 
-.players{flex:none; display:flex; gap:8px; overflow-x:auto; padding:4px 2px 4px}
+.players{flex:none; display:flex; gap:8px; overflow-x:auto; padding:4px 2px 4px; justify-content:safe center}
 .pcard{
   --bw:9px; position:relative; flex:1 1 0; min-width:118px; max-width:260px; display:flex; flex-direction:column; align-items:center; gap:2px;
   padding:4px 6px 6px; background:linear-gradient(180deg,#14251d,#09100d); cursor:pointer; user-select:none;
@@ -390,6 +396,7 @@ body[data-view=game]{padding-left:max(16px,env(safe-area-inset-left,0px)); paddi
 
 <div id="app"></div>
 <div id="flash"></div>
+<button id="mbtn" class="btn abtn mute-btn mbtn" type="button"></button>
 <button id="abtn" class="btn abtn" aria-label="Hudba a zvuky" title="Hudba a zvuky">♪</button>
 <button id="ver" class="ver" title="Co je nového"></button>
 <div id="modal" hidden></div>
@@ -404,8 +411,9 @@ const $=(s,r)=>(r||document).querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
 const clone=o=>JSON.parse(JSON.stringify(o));
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
-const APP_VERSION='1.5';
+const APP_VERSION='1.6';
 const CHANGELOG=[
+ ['1.6','Tlačítko ztlumení vedle ikony zvuku (vypne a zapne všechny zvuky).','Hráči na dolní liště jsou vycentrovaní.','Pozadí pod hráči se plynule ztmavuje do černé.','Testovací pack má štít i v tématu 3 za 30 000.'],
  ['1.5','Nový typ otázky Štít: hráč, který ho vybere, získá štít a při příští špatné odpovědi neztratí body. Bez textu a odpovědi.','Hráč se štítem má u karty ikonu štítu.','Všechna témata na začátku kola odlétají najednou a rychleji, oprava animace mizení.','Hlasitější zvuky témat, větší číslo verze, tlačítko „Hrát“ v menu.'],
  ['1.4','Číslo verze a changelog vlevo dole.','Nové červené pozadí témat na herním plánu (zlato jen na okrajích).','Výraznější animace a zvuky při zobrazení i mizení témat na začátku kola.'],
  ['1.3','Úvodní sekvence kola: nejdřív jen pozadí, po kliknutí přiletí témata, po dalším kliknutí se objeví hra.','Výchozí ceny 10 000 až 50 000.','Logo Zrádci v hlavním menu.'],
@@ -466,7 +474,7 @@ function readJSON(k){const r=S.get(k); if(!r) return null; try{return JSON.parse
 /* ---------- packs ---------- */
 function qNew(price,type){return {price:price,type:type||'normal',text:'',answer:'',comment:'',image:null,time:null};}
 function makeTestPack(){
-  const special={'0:1:2':'cat','0:2:3':'auction','0:3:1':'safe','0:4:0':'shield','1:0:4':'cat','1:4:0':'auction','1:2:2':'shield'};
+  const special={'0:1:2':'cat','0:2:3':'auction','0:3:1':'safe','0:2:2':'shield','0:4:0':'shield','1:0:4':'cat','1:4:0':'auction','1:2:2':'shield'};
   const rounds=[0,1].map(r=>({
     name:'Kolo '+(r+1),
     themes:[0,1,2,3,4].map(t=>({
@@ -508,7 +516,7 @@ const countQ=p=>p.rounds.reduce((n,r)=>n+r.themes.reduce((m,t)=>m+t.questions.le
 const app={
   view:'menu',
   userPacks:[],
-  settings:{count:4,names:[],icons:ICONS.slice(0,10),timeQ:30,timeFinal:60,music:.45,sfx:.6,packId:'test'},
+  settings:{count:4,names:[],icons:ICONS.slice(0,10),timeQ:30,timeFinal:60,music:.45,sfx:.6,mute:false,packId:'test'},
   edit:{packId:null,tab:0}
 };
 let G=null, gameRoot=null, saveTimer=null;
@@ -607,9 +615,15 @@ function mkNoise(ctx,sec){const n=Math.floor(ctx.sampleRate*sec);const b=ctx.cre
 function applyVol(){
   if(!AU.ctx) return;
   const t=AU.ctx.currentTime, s=app.settings;
-  AU.musicBus.gain.setTargetAtTime(Math.pow(s.music,1.6)*1.8,t,.08);
-  AU.sfxBus.gain.setTargetAtTime(Math.pow(s.sfx,1.6)*1.5,t,.08);
+  const m=s.mute?0:1;
+  AU.musicBus.gain.setTargetAtTime(Math.pow(s.music,1.6)*1.8*m,t,.08);
+  AU.sfxBus.gain.setTargetAtTime(Math.pow(s.sfx,1.6)*1.5*m,t,.08);
 }
+const MUTE_ON='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z" fill="currentColor"/><path d="M17 9l5 6M22 9l-5 6"/></svg>';
+const MUTE_OFF='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z" fill="currentColor"/><path d="M16.5 8.5a5 5 0 010 7M19 6a8.500 8.500 0 010 12"/></svg>';
+function paintMute(){ document.querySelectorAll('.mute-btn').forEach(b=>{ b.innerHTML=app.settings.mute?MUTE_ON:MUTE_OFF; b.title=app.settings.mute?'Zapnout zvuk':'Vypnout veškerý zvuk'; b.setAttribute('aria-label',b.title); b.classList.toggle('on',!!app.settings.mute); }); }
+function toggleMute(){ app.settings.mute=!app.settings.mute; saveSettings(); audioStart(); applyVol(); paintMute(); }
+function muteBtn(cls){ const b=h('button',{class:'btn mute-btn '+(cls||''),onclick:toggleMute}); setTimeout(paintMute,0); return b; }
 function audioStart(){
   try{
     if(AU.ctx){ if(AU.ctx.state==='suspended') AU.ctx.resume(); return; }
@@ -858,7 +872,7 @@ function render(){
   const keep=root.scrollTop;
   root.replaceChildren();
   document.body.dataset.view=app.view;
-  const ab=$('#abtn'); if(ab) ab.hidden=app.view==='game';
+  const ab=$('#abtn'); if(ab) ab.hidden=app.view==='game'; const mb=$('#mbtn'); if(mb) mb.hidden=app.view==='game';
   if(app.view==='menu') viewMenu(root);
   else if(app.view==='editor') viewEditor(root);
   else if(app.view==='setup') viewSetup(root);
@@ -958,7 +972,7 @@ function buildBg(mode){
     sc.win&&h('div',{class:'wflash',style:'left:calc(var(--W)*'+sc.win[0]+');top:calc(var(--H)*'+sc.win[1]+');width:calc(var(--W)*'+sc.win[2]+');height:calc(var(--H)*'+sc.win[3]+')'}),
     h('canvas',{class:'mfx'}));
   const stage=h('div',{class:'mstage'},scene,h('div',{class:'mvig'}));
-  const el=h('div',{class:'bgfx '+(game?'game':'menu')},svgEl(sceneFilters(sc)),stage,game&&h('div',{class:'gshade'}));
+  const el=h('div',{class:'bgfx '+(game?'game':'menu')},svgEl(sceneFilters(sc)),stage,game&&h('div',{class:'gshade'}),game&&h('div',{class:'gbot'}));
   if(game) el.style.setProperty('--bgimg','url('+GAME_BG+')');
   return {el:el,stage:stage,scene:sc};
 }
@@ -1534,11 +1548,11 @@ function viewGame(root){
   if(!G){go('menu');return;}
   gameRoot=h('div',{class:'gmain'});
   gFrame=h('div',{class:'gframe'},gameRoot);
-  const bgG=buildBg('game'); root.append(bgG.el,gFrame);
+  const bgG=buildBg('game'); gBg=bgG.el; root.append(bgG.el,gFrame);
   startBgFx(bgG,{onLayout:L=>{ const sw=L.cw<900?0:Math.max(0,Math.round(L.ox+L.W*SCN.game.free-16)); gFrame.style.setProperty('--sw',sw+'px'); }});
   renderGame();
 }
-let gFrame=null;
+let gFrame=null, gBg=null;
 function measurePl(){ try{ const pl=gameRoot&&gameRoot.querySelector('.players'); if(pl&&gFrame) gFrame.style.setProperty('--plh',(pl.offsetHeight+12)+'px'); }catch(e){} }
 window.addEventListener('resize',()=>{ if(app.view==='game') measurePl(); });
 let intro=0, introT=0, introTm=[];
@@ -1577,6 +1591,7 @@ function introView(){
 function STARSVG(){ return svgEl('<svg viewBox="0 0 400 24" aria-hidden="true"><line x1="6" y1="12" x2="172" y2="12" stroke="#e0a850" stroke-width="1.6"/><line x1="228" y1="12" x2="394" y2="12" stroke="#e0a850" stroke-width="1.6"/><path d="M200 1l11 11-11 11-11-11z" fill="none" stroke="#e0a850" stroke-width="1.6"/></svg>'); }
 function renderGame(){
   if(app.view!=='game'||!G||!gameRoot) return;
+  if(gBg) gBg.classList.toggle('ui',!intro);
   if(intro){ gameRoot.replaceChildren(introView()); return; }
   gameRoot.replaceChildren(topbar(),stageView(),playersBar());
   measurePl();
@@ -1591,6 +1606,7 @@ function topbar(){
     h('button',{class:'btn',onclick:openGameMenu},'☰ Menu'),
     h('div',{class:'title',text:phaseTitle()}),
     h('button',{class:'btn',onclick:openAudioPanel,title:'Hudba a zvuky'},'♪'),
+    muteBtn(),
     h('button',{class:'btn',disabled:!G.history.length,onclick:undo,title:'Vrátit poslední krok'},'↶ Zpět'),
     G.phase!=='results'&&h('button',{class:'btn',onclick:togglePause,title:'Mezerník'},G.paused?'▶ Pokračovat':'Ⅱ Pauza'));
 }
@@ -1872,6 +1888,7 @@ document.addEventListener('keyup',e=>{ if(e.key==='h'||e.key==='H'){ const p=$('
 document.addEventListener('click',e=>{ const t=e.target.closest&&e.target.closest('.btn,.pick,.theme-btn,.chip,.pcard,.tab,.pack-item,.qcell'); if(t) sfx('click'); });
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&AU.ctx&&AU.ctx.state==='suspended') AU.ctx.resume(); });
 $('#abtn').addEventListener('click',openAudioPanel);
+$('#mbtn').addEventListener('click',toggleMute); paintMute();
 { const v=$('#ver'); v.textContent='v'+APP_VERSION; v.addEventListener('click',openChangelog); }
 stormLoop(true);
 
