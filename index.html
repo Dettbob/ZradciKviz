@@ -1,4 +1,5 @@
 <title>SIGame Zrádci</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -177,6 +178,73 @@ label.f > .txt,label.f > textarea,label.f > select{color:var(--text); font-size:
 @keyframes flash{0%{opacity:0}8%{opacity:.85}16%{opacity:.12}26%{opacity:.7}60%{opacity:.08}100%{opacity:0}}
 @keyframes flashW{0%{opacity:0}8%{opacity:.16}16%{opacity:.03}26%{opacity:.12}100%{opacity:0}}
 .rng{width:100%; accent-color:var(--gold)}
+/* ---------- mobile (phones / touch with a small screen) ---------- */
+.mcol{display:contents}
+html.mob{touch-action:manipulation; -webkit-tap-highlight-color:transparent; -webkit-text-size-adjust:100%}
+html.mob,html.mob body{height:100dvh}
+html.mob body{padding-block:6px; padding-left:max(8px,env(safe-area-inset-left,0px)); padding-right:max(8px,env(safe-area-inset-right,0px)); font-size:15px}
+html.mob body[data-view=game]{padding-left:max(8px,env(safe-area-inset-left,0px)); padding-right:max(8px,env(safe-area-inset-right,0px)); padding-bottom:max(20px,calc(env(safe-area-inset-bottom,0px) + 14px))}
+html.mob .gbar .mute-btn{padding:7px 9px}
+html.mob .gbar .mute-btn svg{width:15px; height:15px}
+html.mob-land body[data-view=game]{padding-bottom:max(6px,env(safe-area-inset-bottom,0px))}
+html.mob body:not([data-view=game]):not([data-view=menu]) #app{padding-bottom:64px}
+html.mob .abtn{width:38px; height:38px; font-size:1rem; bottom:calc(8px + env(safe-area-inset-bottom,0px))}
+html.mob .abtn.mbtn{right:max(54px,calc(env(safe-area-inset-right,0px) + 54px))}
+html.mob .ver{font-size:12px}
+/* menu */
+html.mob .mcol{position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:0 14px 40px; z-index:3}
+html.mob .mcol>*{position:static!important; transform:none!important; margin:0!important; left:auto!important; top:auto!important}
+html.mob .mlogo{height:auto!important; width:min(84vw,380px)}
+html.mob .msub{font-size:clamp(15px,4.4vw,22px)!important}
+html.mob .mdiv{width:min(56vw,240px)!important}
+html.mob .mbtns{flex-wrap:wrap; justify-content:center; gap:10px}
+html.mob .mbtns .btn{font-size:15px; padding:.8em 1.6em}
+html.mob .minfo{font-size:13px!important; text-align:center; white-space:normal!important}
+html.mob .mhint{bottom:58px; font-size:.68rem; text-align:center; width:80%}
+html.mob .mwarn{left:8px; bottom:54px; max-width:60vw; font-size:.8rem}
+html.mob-land .mcol{flex-direction:column; gap:6px; padding-bottom:10px}
+html.mob-land .mlogo{width:auto; height:36vh!important}
+/* game */
+html.mob .gbar{flex-wrap:wrap; gap:6px; justify-content:space-between}
+html.mob .gbar .btn{padding:7px 9px; font-size:.7rem; letter-spacing:.04em}
+html.mob .gbar .title{order:9; flex:1 0 100%; font-size:13px; letter-spacing:.1em}
+html.mob .gmain{gap:6px}
+html.mob .turn{font-size:12px}
+html.mob .board{gap:4px}
+html.mob .players{gap:6px; padding:6px 2px 2px}
+html.mob .pcard{min-width:88px; flex:0 0 88px; padding:3px 4px 4px; --bw:7px}
+html.mob .pportrait .ava{--s:40px}
+html.mob .pplate{margin-top:6px; padding:1px 3px 2px}
+html.mob .pname{font-size:11px}
+html.mob .pscore{font-size:16px}
+html.mob .pcard .pkey{display:none}
+html.mob .pcard .pedit{padding:1px 4px; font-size:.8rem}
+html.mob .pshield{right:-10px; top:-6px; height:26px}
+html.mob .pcard .badge{top:-12px; font-size:.55rem}
+html.mob .qtext{font-size:clamp(17px,4.6vw,26px)}
+html.mob .controls{gap:6px; padding:6px}
+html.mob .controls .btn{padding:9px 11px; font-size:.78rem}
+html.mob .mbox{max-width:96vw}
+html.mob .cell .pr{font-size:min(clamp(14px,4vw,26px),calc(100cqw/(var(--n,3)*.72)))}
+/* portrait: each theme = a header strip + one row of prices */
+html.mob:not(.mob-land) .board{grid-template-columns:repeat(var(--cn,5),minmax(0,1fr))!important; grid-template-rows:repeat(var(--tn,5),auto minmax(0,1fr))!important}
+html.mob:not(.mob-land) .th{grid-column:1/-1; min-height:26px; padding:2px 26px; font-size:12px; letter-spacing:.06em}
+html.mob:not(.mob-land) .th::before,html.mob:not(.mob-land) .th::after{width:9px}
+html.mob:not(.mob-land) .th::before{left:8px}html.mob:not(.mob-land) .th::after{right:8px}
+html.mob:not(.mob-land) .cell{--bw:6px}
+/* landscape phone: keep the side-by-side board, just tighter */
+html.mob-land .gbar{flex-wrap:nowrap}
+html.mob-land .gbar .title{order:0; flex:1 1 auto; font-size:12px}
+html.mob-land .th{font-size:11px; padding:2px 22px}
+html.mob-land .th::before,html.mob-land .th::after{width:8px}
+html.mob-land .pcard{flex:0 0 auto; min-width:0; flex-direction:row; gap:6px; align-items:center; padding:3px 6px}
+html.mob-land .pplate{margin-top:0}
+html.mob-land .pportrait .ava{--s:30px}
+html.mob-land .pstar{display:none}
+html.mob-land .players{padding:2px}
+html.mob-land .controls{padding:4px}
+html.mob-land .qhead{gap:6px}
+
 @media (prefers-reduced-motion:reduce){.glow,.mfog,.mhint,.flight,.mscene{animation:none!important} #flash{display:none}}
 
 /* editor */
@@ -411,8 +479,9 @@ const $=(s,r)=>(r||document).querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
 const clone=o=>JSON.parse(JSON.stringify(o));
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
-const APP_VERSION='1.6';
+const APP_VERSION='1.7';
 const CHANGELOG=[
+ ['1.7','Úprava pro mobily: na telefonu se rozložení přizpůsobí (menu, herní plán, hráči, ovládání). Na počítači zůstává vše beze změny.','Na mobilu se ve hře nezobrazuje postava s loučí.'],
  ['1.6','Tlačítko ztlumení vedle ikony zvuku (vypne a zapne všechny zvuky).','Hráči na dolní liště jsou vycentrovaní.','Pozadí pod hráči se plynule ztmavuje do černé.','Testovací pack má štít i v tématu 3 za 30 000.'],
  ['1.5','Nový typ otázky Štít: hráč, který ho vybere, získá štít a při příští špatné odpovědi neztratí body. Bez textu a odpovědi.','Hráč se štítem má u karty ikonu štítu.','Všechna témata na začátku kola odlétají najednou a rychleji, oprava animace mizení.','Hlasitější zvuky témat, větší číslo verze, tlačítko „Hrát“ v menu.'],
  ['1.4','Číslo verze a changelog vlevo dole.','Nové červené pozadí témat na herním plánu (zlato jen na okrajích).','Výraznější animace a zvuky při zobrazení i mizení témat na začátku kola.'],
@@ -849,6 +918,17 @@ function openAudioPanel(){
     h('div',{class:'row end'},h('button',{class:'btn primary',onclick:closeModal},'Hotovo'))));
 }
 /* storm: flash + thunder, called from a timer */
+function detectMobile(){
+  const force=/[?&]mobile=(1|0)/.exec(location.search);
+  let m;
+  if(force) m=force[1]==='1';
+  else{ const coarse=!!(window.matchMedia&&matchMedia('(pointer:coarse)').matches); m=coarse&&Math.min(window.innerWidth,window.innerHeight)<=820; }
+  document.documentElement.classList.toggle('mob',m);
+  document.documentElement.classList.toggle('mob-land',m&&window.innerWidth>window.innerHeight);
+  return m;
+}
+detectMobile();
+window.addEventListener('resize',detectMobile); window.addEventListener('orientationchange',detectMobile);
 const RM=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
 let menuFx=null;
 function strike(power){
@@ -983,12 +1063,12 @@ function viewMenu(root){
   btns.push(h('button',{class:'btn primary',onclick:()=>go('setup')},'Hrát'),
             h('button',{class:'btn',onclick:()=>{app.edit.packId=app.edit.packId||(app.userPacks[0]&&app.userPacks[0].id)||'test';go('editor');}},'Vytvořit pack'));
   const bg=buildBg('menu');
-  bg.stage.append(
+  bg.stage.append(h('div',{class:'mcol'},
     hoodLogo(),
     h('p',{class:'msub',text:'KVÍZ'}),
     menuDivider(),
     h('div',{class:'mbtns'},btns),
-    sg&&h('p',{class:'minfo',text:'Rozehraná hra: '+sg.pack.name+' · '+sg.players.length+' hráčů · '+(sg.phase==='results'?'výsledky':sg.phase.indexOf('final')===0?'finále':'kolo '+(sg.roundIdx+1))}));
+    sg&&h('p',{class:'minfo',text:'Rozehraná hra: '+sg.pack.name+' · '+sg.players.length+' hráčů · '+(sg.phase==='results'?'výsledky':sg.phase.indexOf('final')===0?'finále':'kolo '+(sg.roundIdx+1))})));
   bg.el.append(
     !AU.ctx&&h('div',{class:'mhint',text:'♪ Hudba a zvuky se zapnou po prvním kliknutí'}),
     !storageOk&&h('div',{class:'warnbox mwarn',text:'Prohlížeč neumožňuje ukládání. Packy a rozehranou hru neuložíš, packy si zálohuj přes Export.'}));
@@ -1011,16 +1091,17 @@ function startBgFx(bg,opts){
   const menu=bg.el, stage=bg.stage, sc=bg.scene;
   const cv=stage.querySelector('.mfx'), c2=cv.getContext('2d'), spr=fireSprites();
   const torch=sc.torch;
-  let W=1,H=1,last=performance.now(),lastDraw=0,rain=[],emb=[],fp=[],dust=[],bolt=null,dead=false,ema=16,low=false;
+  let W=1,H=1,last=performance.now(),lastDraw=0,rain=[],emb=[],fp=[],dust=[],bolt=null,dead=false,ema=16,low=document.documentElement.classList.contains('mob');
   const wvLast=sc.waves.map(()=>0);
   const tw=sc.twinkle.map(()=>({ph:Math.random()*6.28,sp:.6+Math.random()*1.8}));
   function layout(){
     const cw=menu.clientWidth||window.innerWidth, ch=menu.clientHeight||window.innerHeight;
-    const s=sc.fit==='contain'?Math.min(cw/sc.w,ch/sc.h):Math.max(cw/sc.w,ch/sc.h);
+    const mob=document.documentElement.classList.contains('mob'); const contain=sc.fit==='contain'&&!mob; const foc=sc.focus||(mob&&sc.free?.62:.5);
+    const s=contain?Math.min(cw/sc.w,ch/sc.h):Math.max(cw/sc.w,ch/sc.h);
     W=Math.round(sc.w*s); H=Math.round(sc.h*s);
     let ox,oy;
-    if(sc.fit==='contain'){ ox=Math.round((cw-W)/2); oy=Math.round((ch-H)/2); }
-    else{ ox=cw/2-(sc.focus||.5)*W; ox=Math.min(0,Math.max(cw-W,ox)); oy=Math.min(0,Math.max(ch-H,(ch-H)/2)); }
+    if(contain){ ox=Math.round((cw-W)/2); oy=Math.round((ch-H)/2); }
+    else{ ox=cw/2-foc*W; ox=Math.min(0,Math.max(cw-W,ox)); oy=Math.min(0,Math.max(ch-H,(ch-H)/2)); }
     stage.style.setProperty('--W',W+'px'); stage.style.setProperty('--H',H+'px');
     stage.style.left=ox+'px'; stage.style.top=oy+'px';
     cv.width=W; cv.height=H;
@@ -1549,7 +1630,7 @@ function viewGame(root){
   gameRoot=h('div',{class:'gmain'});
   gFrame=h('div',{class:'gframe'},gameRoot);
   const bgG=buildBg('game'); gBg=bgG.el; root.append(bgG.el,gFrame);
-  startBgFx(bgG,{onLayout:L=>{ const sw=L.cw<900?0:Math.max(0,Math.round(L.ox+L.W*SCN.game.free-16)); gFrame.style.setProperty('--sw',sw+'px'); }});
+  startBgFx(bgG,{onLayout:L=>{ const sw=(L.cw<900||document.documentElement.classList.contains('mob'))?0:Math.max(0,Math.round(L.ox+L.W*SCN.game.free-16)); gFrame.style.setProperty('--sw',sw+'px'); }});
   renderGame();
 }
 let gFrame=null, gBg=null;
@@ -1635,7 +1716,7 @@ function boardView(){
   wrap.append(h('div',{class:'turn'},'Vybírá: ',h('b',{text:pname(G.chooser)}),'  ·  klikni na hráče pro změnu'));
   if(!R||!R.themes.length){wrap.append(h('div',{class:'center-col'},h('p',{class:'muted',text:'Toto kolo nemá žádná témata.'}),h('button',{class:'btn primary',onclick:()=>commit(()=>{G.phase='roundEnd';})},'Pokračovat')));return wrap;}
   const cols=Math.max(1,...R.themes.map(t=>t.questions.length));
-  const grid=h('div',{class:'board',style:'grid-template-columns:minmax(0,1.5fr) repeat('+cols+',minmax(0,1fr));grid-template-rows:repeat('+R.themes.length+',minmax(0,1fr))'});
+  const grid=h('div',{class:'board',style:'grid-template-columns:minmax(0,1.5fr) repeat('+cols+',minmax(0,1fr));grid-template-rows:repeat('+R.themes.length+',minmax(0,1fr));--tn:'+R.themes.length+';--cn:'+cols});
   R.themes.forEach((t,ti)=>{
     grid.append(h('div',{class:'th'},h('span',{text:t.name})));
     for(let qi=0;qi<cols;qi++){
