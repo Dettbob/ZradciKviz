@@ -486,8 +486,9 @@ const $=(s,r)=>(r||document).querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
 const clone=o=>JSON.parse(JSON.stringify(o));
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
-const APP_VERSION='1.8';
+const APP_VERSION='1.9';
 const CHANGELOG=[
+ ['1.9','V menu je nové tlačítko Zobrazení: Automaticky / Telefon / Počítač. Rozložení pro telefon nebo počítač lze zvolit ručně.'],
  ['1.8','Nový typ kola „Všichni odpovídají“: jedno téma, všechny otázky za stejné body, odpovídají všichni na papír a host body přidělí. Lze nastavit, jestli za špatnou odpověď body ubývají (štít chrání).','V nastavení hráče (✎) jde přidat nebo odebrat štít.','Testovací pack má jako 2. kolo kolo pro všechny.'],
  ['1.7','Úprava pro mobily: na telefonu se rozložení přizpůsobí (menu, herní plán, hráči, ovládání). Na počítači zůstává vše beze změny.','Na mobilu se ve hře nezobrazuje postava s loučí.'],
  ['1.6','Tlačítko ztlumení vedle ikony zvuku (vypne a zapne všechny zvuky).','Hráči na dolní liště jsou vycentrovaní.','Pozadí pod hráči se plynule ztmavuje do černé.','Testovací pack má štít i v tématu 3 za 30 000.'],
@@ -596,7 +597,7 @@ const countQ=p=>p.rounds.reduce((n,r)=>n+r.themes.reduce((m,t)=>m+t.questions.le
 const app={
   view:'menu',
   userPacks:[],
-  settings:{count:4,names:[],icons:ICONS.slice(0,10),timeQ:30,timeFinal:60,music:.45,sfx:.6,mute:false,packId:'test'},
+  settings:{count:4,names:[],icons:ICONS.slice(0,10),timeQ:30,timeFinal:60,music:.45,sfx:.6,mute:false,layout:'auto',packId:'test'},
   edit:{packId:null,tab:0}
 };
 let G=null, gameRoot=null, saveTimer=null;
@@ -929,11 +930,24 @@ function openAudioPanel(){
     h('div',{class:'row end'},h('button',{class:'btn primary',onclick:closeModal},'Hotovo'))));
 }
 /* storm: flash + thunder, called from a timer */
+function openLayoutPanel(){
+  const s=app.settings;
+  const opt=(v,label,desc)=>h('button',{class:'btn'+((s.layout||'auto')===v?' primary':''),style:'text-align:left',onclick:()=>{s.layout=v; saveSettings(); detectMobile(); closeModal(); if(G&&app.view==='game') go('game'); else render(); toast('Zobrazení: '+label);}},h('b',{text:label}),h('div',{class:'muted',style:'font-size:.85rem',text:desc}));
+  openModal('Zobrazení',h('div',{class:'mbody'},
+    opt('auto','Automaticky','Telefon se pozná sám, na počítači zůstává běžné rozložení.'),
+    opt('mobile','Telefon','Rozložení přizpůsobené pro malou obrazovku (bez postavy s loučí ve hře).'),
+    opt('pc','Počítač','Plné rozložení s postavou vlevo, i když hraješ na telefonu nebo tabletu.'),
+    h('div',{class:'row end'},h('button',{class:'btn',onclick:closeModal},'Zavřít'))));
+}
 function detectMobile(){
   const force=/[?&]mobile=(1|0)/.exec(location.search);
   let m;
+  const lay=(app&&app.settings&&app.settings.layout)||'auto';
   if(force) m=force[1]==='1';
+  else if(lay==='mobile') m=true;
+  else if(lay==='pc') m=false;
   else{ const coarse=!!(window.matchMedia&&matchMedia('(pointer:coarse)').matches); m=coarse&&Math.min(window.innerWidth,window.innerHeight)<=820; }
+  try{ const vp=document.querySelector('meta[name=viewport]'); const small=Math.min(screen.width,screen.height)<=820; if(vp) vp.setAttribute('content',(lay==='pc'&&small&&!force)?'width=1100,initial-scale=1,viewport-fit=cover':'width=device-width,initial-scale=1,viewport-fit=cover'); }catch(e){}
   document.documentElement.classList.toggle('mob',m);
   document.documentElement.classList.toggle('mob-land',m&&window.innerWidth>window.innerHeight);
   return m;
@@ -1072,7 +1086,8 @@ function viewMenu(root){
   const btns=[];
   if(sg) btns.push(h('button',{class:'btn',onclick:resumeGame},'Pokračovat'));
   btns.push(h('button',{class:'btn primary',onclick:()=>go('setup')},'Hrát'),
-            h('button',{class:'btn',onclick:()=>{app.edit.packId=app.edit.packId||(app.userPacks[0]&&app.userPacks[0].id)||'test';go('editor');}},'Vytvořit pack'));
+            h('button',{class:'btn',onclick:()=>{app.edit.packId=app.edit.packId||(app.userPacks[0]&&app.userPacks[0].id)||'test';go('editor');}},'Vytvořit pack'),
+            h('button',{class:'btn',onclick:openLayoutPanel},'Zobrazení: '+({auto:'automaticky',mobile:'telefon',pc:'počítač'}[app.settings.layout||'auto'])));
   const bg=buildBg('menu');
   bg.stage.append(h('div',{class:'mcol'},
     hoodLogo(),
@@ -2033,6 +2048,7 @@ function openGameMenu(){
     h('div',{class:'sec',text:'Další'}),
     h('div',{class:'mgrid'},
       act('♪ Hudba a zvuky',openAudioPanel),
+      act('Zobrazení (telefon / počítač)',openLayoutPanel),
       h('button',{class:'btn',onclick:()=>{closeModal();try{const p=document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen(); if(p&&p.catch) p.catch(()=>toast('Celá obrazovka tu není dostupná'));}catch(e){toast('Celá obrazovka tu není dostupná');}}},'Celá obrazovka'),
       act('Opustit hru (zůstane uložena)',()=>{G=null;go('menu');}),
       act('Smazat hru a do menu',()=>confirmBox('Smazat rozehranou hru? Nejde to vrátit.','Smazat',()=>{S.del(LS_GAME);G=null;go('menu');},true),'bad')),
