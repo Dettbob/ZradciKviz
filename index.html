@@ -491,8 +491,9 @@ const $=(s,r)=>(r||document).querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
 const clone=o=>JSON.parse(JSON.stringify(o));
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
-const APP_VERSION='2.4';
+const APP_VERSION='2.5';
 const CHANGELOG=[
+ ['2.5','Zvuky v hlavním menu: pryč syčivý šum ohně, deště a kapek; nově jemný vítr, šustění listí, cvrčci a občasná sova (noční příroda). Ve hře beze změny (jen praskání ohně).'],
  ['2.4','Karty hráčů zpět na původní místo (vycentrované přes celou šířku).','Ve hře zůstává jen praskání ohně, odstraněn i souvislý hukot ohně (šum).'],
  ['2.3','Ve hře se ozývá jen oheň: pryč vítr, déšť, kapky i hřmění.','Karty hráčů se centrují pod herní plán (pokud se vejdou), ne k levému okraji.'],
  ['2.2','Nová videa na pozadí: hlavní menu (hrad a měsíc) i hra (postava s loučí v sále). V menu se při videu vypíná déšť a blesky na pozadí.'],
@@ -743,24 +744,54 @@ function noiseSrc(){
 }
 function startAmbient(){
   const ctx=AU.ctx;
-  /* drizzle: only a faint hiss, the rest are tiny drops (dripLoop) */
-  const r=noiseSrc(), rb=ctx.createBiquadFilter(), rg=ctx.createGain();
-  rb.type='bandpass'; rb.frequency.value=4200; rb.Q.value=.5; rg.gain.value=.0022;
-  const rv=ctx.createGain(); rv.gain.value=app.view==='game'?0:1; AU.rainGate=rv;
-  r.connect(rb); rb.connect(rg); rg.connect(rv); rv.connect(AU.sfxBus); lfo(rg.gain,.001,.05);
-  /* wind */
-  const w=noiseSrc(), wb=ctx.createBiquadFilter(), wg=ctx.createGain();
-  wb.type='bandpass'; wb.frequency.value=420; wb.Q.value=.9; wg.gain.value=.04;
-  w.connect(wb); wb.connect(wg); wg.connect(rv); lfo(wb.frequency,180,.05); lfo(wg.gain,.02,.07);
-  /* fire: warm roar and a deep body, both flickering */
-  const f=noiseSrc(), fb=ctx.createBiquadFilter(), fg=ctx.createGain();
-  fb.type='bandpass'; fb.frequency.value=520; fb.Q.value=.6; fg.gain.value=.12;
-  const rv2=ctx.createGain(); rv2.gain.value=app.view==='game'?0:1; AU.roarGate=rv2; rv2.connect(AU.sfxBus);
-  f.connect(fb); fb.connect(fg); fg.connect(rv2); lfo(fg.gain,.05,.37); lfo(fg.gain,.03,1.3); lfo(fb.frequency,160,.23);
-  const f2=noiseSrc(), fl=ctx.createBiquadFilter(), fg2=ctx.createGain();
-  fl.type='lowpass'; fl.frequency.value=170; fg2.gain.value=.08;
-  f2.connect(fl); fl.connect(fg2); fg2.connect(rv2); lfo(fg2.gain,.03,.5);
-  dripLoop(); whooshLoop();
+  /* night nature: everything goes through one gate (silent in game) */
+  const rv=ctx.createGain(); rv.gain.value=app.view==='game'?0:1; AU.rainGate=rv; rv.connect(AU.sfxBus);
+  /* soft wind: low, slow gusts */
+  const w=noiseSrc(), wl=ctx.createBiquadFilter(), wg=ctx.createGain();
+  wl.type='lowpass'; wl.frequency.value=380; wl.Q.value=.4; wg.gain.value=.05;
+  w.connect(wl); wl.connect(wg); wg.connect(rv); lfo(wl.frequency,140,.04); lfo(wg.gain,.025,.06); lfo(wg.gain,.012,.13);
+  /* leaves in the trees: airy rustle swelling with the gusts */
+  const l=noiseSrc(), lh=ctx.createBiquadFilter(), lb=ctx.createBiquadFilter(), lg=ctx.createGain();
+  lh.type='highpass'; lh.frequency.value=2200; lb.type='bandpass'; lb.frequency.value=4800; lb.Q.value=.45; lg.gain.value=.011;
+  l.connect(lh); lh.connect(lb); lb.connect(lg); lg.connect(rv); lfo(lg.gain,.008,.07); lfo(lg.gain,.004,.19);
+  cricketLoop(); owlLoop();
+}
+function cricketLoop(){
+  const ctx=AU.ctx; if(!ctx) return;
+  try{
+    if(ctx.state==='running'&&app.settings.sfx>0&&!document.hidden&&app.view!=='game'){
+      /* a cricket: short trills of fast pulses on a ~4.4 kHz tone */
+      const t=ctx.currentTime+.02, f=4200+Math.random()*700, trills=2+Math.floor(Math.random()*3), vol=.0035+Math.random()*.003;
+      for(let k=0;k<trills;k++){
+        const st=t+k*.34, pulses=5+Math.floor(Math.random()*3);
+        for(let i=0;i<pulses;i++){
+          const o=ctx.createOscillator(), g=ctx.createGain(), ps=st+i*.045;
+          o.type='sine'; o.frequency.value=f; g.gain.setValueAtTime(0,ps);
+          g.gain.linearRampToValueAtTime(vol,ps+.012); g.gain.exponentialRampToValueAtTime(.0001,ps+.04);
+          o.connect(g); g.connect(AU.rainGate); o.start(ps); o.stop(ps+.05);
+        }
+      }
+    }
+  }catch(e){}
+  setTimeout(cricketLoop,1400+Math.random()*3200);
+}
+function owlLoop(){
+  const ctx=AU.ctx; if(!ctx) return;
+  try{
+    if(ctx.state==='running'&&app.settings.sfx>0&&!document.hidden&&app.view!=='game'){
+      /* distant owl: a soft "hu-hu-huuu" */
+      const t=ctx.currentTime+.05, base=330+Math.random()*50;
+      [[0,.28,1],[.42,.28,.95],[.9,.7,.88]].forEach(([d,len,m])=>{
+        const o=ctx.createOscillator(), g=ctx.createGain(), lp=ctx.createBiquadFilter();
+        o.type='sine'; lp.type='lowpass'; lp.frequency.value=700;
+        o.frequency.setValueAtTime(base*m*1.06,t+d); o.frequency.exponentialRampToValueAtTime(base*m*.94,t+d+len);
+        g.gain.setValueAtTime(0,t+d); g.gain.linearRampToValueAtTime(.012,t+d+.07); g.gain.exponentialRampToValueAtTime(.0001,t+d+len);
+        o.connect(lp); lp.connect(g); g.connect(AU.rainGate); const r=ctx.createGain(); r.gain.value=.5; g.connect(r); r.connect(AU.revS);
+        o.start(t+d); o.stop(t+d+len+.05);
+      });
+    }
+  }catch(e){}
+  setTimeout(owlLoop,14000+Math.random()*22000);
 }
 function dripLoop(){
   const ctx=AU.ctx; if(!ctx) return;
@@ -776,7 +807,7 @@ function dripLoop(){
       }
     }
   }catch(e){}
-  setTimeout(dripLoop,110+Math.random()*320);
+  
 }
 function whooshLoop(){
   const ctx=AU.ctx; if(!ctx) return;
@@ -789,7 +820,7 @@ function whooshLoop(){
       s.connect(bp); bp.connect(g); g.connect(AU.sfxBus); s.start(t,Math.random()*2,1.3);
     }
   }catch(e){}
-  setTimeout(whooshLoop,1500+Math.random()*3500);
+  
 }
 function crackleLoop(){
   const ctx=AU.ctx; if(!ctx) return;
