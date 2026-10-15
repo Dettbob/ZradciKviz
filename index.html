@@ -491,8 +491,9 @@ const $=(s,r)=>(r||document).querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
 const clone=o=>JSON.parse(JSON.stringify(o));
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
-const APP_VERSION='2.5';
+const APP_VERSION='2.6';
 const CHANGELOG=[
+ ['2.6','Sova je výrazně hlasitější a častější. Hrom trvá déle (6–12 s) a střídá se klasický hrom s hlubokým vzdáleným dunění se sub-basem.'],
  ['2.5','Zvuky v hlavním menu: pryč syčivý šum ohně, deště a kapek; nově jemný vítr, šustění listí, cvrčci a občasná sova (noční příroda). Ve hře beze změny (jen praskání ohně).'],
  ['2.4','Karty hráčů zpět na původní místo (vycentrované přes celou šířku).','Ve hře zůstává jen praskání ohně, odstraněn i souvislý hukot ohně (šum).'],
  ['2.3','Ve hře se ozývá jen oheň: pryč vítr, déšť, kapky i hřmění.','Karty hráčů se centrují pod herní plán (pokud se vejdou), ne k levému okraji.'],
@@ -783,15 +784,15 @@ function owlLoop(){
       const t=ctx.currentTime+.05, base=330+Math.random()*50;
       [[0,.28,1],[.42,.28,.95],[.9,.7,.88]].forEach(([d,len,m])=>{
         const o=ctx.createOscillator(), g=ctx.createGain(), lp=ctx.createBiquadFilter();
-        o.type='sine'; lp.type='lowpass'; lp.frequency.value=700;
+        o.type='sine'; lp.type='lowpass'; lp.frequency.value=900;
         o.frequency.setValueAtTime(base*m*1.06,t+d); o.frequency.exponentialRampToValueAtTime(base*m*.94,t+d+len);
-        g.gain.setValueAtTime(0,t+d); g.gain.linearRampToValueAtTime(.012,t+d+.07); g.gain.exponentialRampToValueAtTime(.0001,t+d+len);
-        o.connect(lp); lp.connect(g); g.connect(AU.rainGate); const r=ctx.createGain(); r.gain.value=.5; g.connect(r); r.connect(AU.revS);
+        g.gain.setValueAtTime(0,t+d); g.gain.linearRampToValueAtTime(.075,t+d+.08); g.gain.exponentialRampToValueAtTime(.0001,t+d+len);
+        o.connect(lp); lp.connect(g); g.connect(AU.rainGate); const r=ctx.createGain(); r.gain.value=.35; g.connect(r); r.connect(AU.revS);
         o.start(t+d); o.stop(t+d+len+.05);
       });
     }
   }catch(e){}
-  setTimeout(owlLoop,14000+Math.random()*22000);
+  setTimeout(owlLoop,9000+Math.random()*14000);
 }
 function dripLoop(){
   const ctx=AU.ctx; if(!ctx) return;
@@ -839,19 +840,33 @@ function crackleLoop(){
   }catch(e){}
   setTimeout(crackleLoop,70+Math.random()*300);
 }
+let thunderDeep=false;
 function thunder(power){
   const ctx=AU.ctx; if(!ctx||ctx.state!=='running'||app.settings.sfx<=0) return;
   try{
-    const t=ctx.currentTime+.02, p=.55*power;
+    thunderDeep=!thunderDeep; /* alternate: classic crack-and-roll / deep distant rumble */
+    const deep=thunderDeep, D=deep?8+Math.random()*4:6+Math.random()*3;
+    const t=ctx.currentTime+.02, p=(deep?.7:.55)*power;
     const s=ctx.createBufferSource(); s.buffer=AU.noise; s.loop=true;
-    const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.setValueAtTime(1100,t); lp.frequency.exponentialRampToValueAtTime(70,t+4.2); lp.Q.value=.6;
-    const g=ctx.createGain();
-    g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(p,t+.06); g.gain.exponentialRampToValueAtTime(p*.3,t+.5);
-    g.gain.linearRampToValueAtTime(p*.75,t+.9); g.gain.exponentialRampToValueAtTime(p*.2,t+1.8);
-    g.gain.linearRampToValueAtTime(p*.45,t+2.3); g.gain.exponentialRampToValueAtTime(.0001,t+5);
+    const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.Q.value=.6;
+    lp.frequency.setValueAtTime(deep?420:1100,t); lp.frequency.exponentialRampToValueAtTime(deep?38:70,t+D*.9);
+    const g=ctx.createGain(); g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(p,t+(deep?.25:.06));
+    /* several rolling swells that slowly die away */
+    const n=deep?5:4; let tt=t+(deep?.25:.06), lvl=p;
+    for(let i=0;i<n;i++){
+      const dip=tt+D*(.08+Math.random()*.06); g.gain.exponentialRampToValueAtTime(Math.max(lvl*.3,.0002),dip);
+      lvl*=.7; const up=dip+D*(.05+Math.random()*.05); g.gain.linearRampToValueAtTime(lvl,up); tt=up;
+    }
+    g.gain.exponentialRampToValueAtTime(.0001,t+D);
     s.connect(lp); lp.connect(g); g.connect(AU.sfxBus);
     const sd=ctx.createGain(); sd.gain.value=.6; g.connect(sd); sd.connect(AU.revS);
-    s.start(t,Math.random()*2); s.stop(t+5.2);
+    s.start(t,Math.random()*2); s.stop(t+D+.2);
+    if(deep){ /* sub-bass body under the noise */
+      const o=ctx.createOscillator(), og=ctx.createGain(); o.type='sine';
+      o.frequency.setValueAtTime(62,t); o.frequency.exponentialRampToValueAtTime(34,t+D*.8);
+      og.gain.setValueAtTime(0,t); og.gain.linearRampToValueAtTime(.22*power,t+.5); og.gain.exponentialRampToValueAtTime(.0001,t+D);
+      o.connect(og); og.connect(AU.sfxBus); o.start(t); o.stop(t+D+.2);
+    }
   }catch(e){}
 }
 function tone(freq,t,type,dur,gain,send){
