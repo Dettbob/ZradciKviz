@@ -164,8 +164,17 @@ html:has(.bgfx.menu.vid) #flash{display:none!important}
 .mbtns .btn{font-size:clamp(11px,calc(var(--W)*.0092),17px); padding:.75em 1.5em; white-space:nowrap; background-color:#0009}
 .mbtns .btn.primary{background:linear-gradient(180deg,var(--wine2),var(--wine))}
 .minfo{position:absolute; left:calc(var(--W)*.5); top:calc(var(--H)*.865); margin:0; transform:translateX(-50%); white-space:nowrap; color:var(--muted); font-size:clamp(12px,calc(var(--W)*.0085),16px); text-shadow:0 1px 3px #000}
-.mcol>*{transition:opacity 1.6s ease}
-.mcol.hid>*{opacity:0; pointer-events:none}
+.mcol>*{transition:opacity 1.8s ease, translate 2.2s cubic-bezier(.2,.7,.2,1), scale 2.6s cubic-bezier(.2,.7,.2,1)}
+.mcol.hid>*{opacity:0; pointer-events:none; translate:0 14px}
+.mcol.hid>.mlogo{scale:.93; translate:0 20px}
+.mcol.hid.s1>.mlogo{opacity:1; scale:1; translate:0 0}
+.mcol.hid.s2>*{opacity:1; pointer-events:auto; translate:0 0}
+.mcol.hid.s2>.msub{transition-delay:0s}
+.mcol.hid.s2>.mdiv{transition-delay:.35s}
+.mcol.hid.s2>.mbtns{transition-delay:.7s}
+.mcol.hid.s2>.minfo{transition-delay:1.05s}
+@keyframes logoGlow{from{filter:drop-shadow(0 0 16px #e0802433) drop-shadow(0 5px 6px #000)}to{filter:drop-shadow(0 0 38px #e08024aa) drop-shadow(0 5px 6px #000)}}
+.mcol.live>.mlogo{animation:logoGlow 4.5s ease-in-out infinite alternate}
 .mintro{position:absolute; inset:0; z-index:5; cursor:pointer}
 .mintro span{position:absolute; left:50%; bottom:9%; transform:translateX(-50%); color:#f3e3b8; opacity:.38; font:600 clamp(12px,1.1vw,16px) var(--font-display); letter-spacing:.45em; text-transform:uppercase; text-shadow:0 1px 4px #000; animation:pulse 3.2s ease-in-out infinite}
 .mhint{position:absolute; left:50%; bottom:16px; transform:translateX(-50%); z-index:6; color:var(--gold-hi); font:600 .8rem var(--font-display); letter-spacing:.12em; text-transform:uppercase; text-shadow:0 1px 4px #000; animation:pulse 2.6s ease-in-out infinite; pointer-events:none}
@@ -495,8 +504,9 @@ const $=(s,r)=>(r||document).querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
 const clone=o=>JSON.parse(JSON.stringify(o));
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
-const APP_VERSION='2.7';
+const APP_VERSION='2.8';
 const CHANGELOG=[
+ ['2.8','Intro menu: po druhém kliknutí se nejdřív jemně vynoří logo se nápisem Zrádci, po chvíli KVÍZ a tlačítka (postupně). Logo pak jemně „dýchá“ září.'],
  ['2.7','Hlavní menu: logo, tlačítka a nápisy vycentrované. Po otevření nejdřív jen pozadí: 1. klik spustí hudbu a zvuky, 2. klik zobrazí logo a tlačítka (nenápadný nápis „pokračovat“).','Sova houká po dvojicích („hu-huuu“), několikrát po sobě a méně často.'],
  ['2.6','Sova je výrazně hlasitější a častější. Hrom trvá déle (6–12 s) a střídá se klasický hrom s hlubokým vzdáleným dunění se sub-basem.'],
  ['2.5','Zvuky v hlavním menu: pryč syčivý šum ohně, deště a kapek; nově jemný vítr, šustění listí, cvrčci a občasná sova (noční příroda). Ve hře beze změny (jen praskání ohně).'],
@@ -1181,7 +1191,7 @@ function viewMenu(root){
             h('button',{class:'btn',onclick:()=>{app.edit.packId=app.edit.packId||(app.userPacks[0]&&app.userPacks[0].id)||'test';go('editor');}},'Vytvořit pack'),
             h('button',{class:'btn',onclick:openLayoutPanel},'Zobrazení: '+({auto:'automaticky',mobile:'telefon',pc:'počítač'}[app.settings.layout||'auto'])));
   const bg=buildBg('menu');
-  bg.stage.append(h('div',{class:'mcol'+(introDone?'':' hid')},
+  bg.stage.append(h('div',{class:'mcol'+(introDone?' live':' hid')},
     hoodLogo(),
     h('p',{class:'msub',text:'KVÍZ'}),
     menuDivider(),
@@ -1190,7 +1200,7 @@ function viewMenu(root){
   bg.el.append(
     !introDone&&h('div',{class:'mintro',role:'button',tabindex:0,'aria-label':'Pokračovat',onclick:function(){
       audioStart(); introClicks++;
-      if(introClicks>=2||!AU.ctx&&introClicks>=1){ introDone=true; const mc=bg.stage.querySelector('.mcol'); if(mc) mc.classList.remove('hid'); this.remove(); }
+      if(introClicks>=2||!AU.ctx&&introClicks>=1){ introDone=true; const mc=bg.stage.querySelector('.mcol'); this.remove(); if(mc){ mc.classList.add('s1'); setTimeout(()=>mc.classList.add('s2'),2300); setTimeout(()=>{ mc.classList.remove('hid','s1','s2'); mc.classList.add('live'); },5200); } }
       else { const sp=this.querySelector('span'); if(sp) sp.style.animation='pulse 3.2s ease-in-out infinite'; }
     },onkeydown:function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); this.click(); } }},h('span',{text:'pokračovat'})),
     !storageOk&&h('div',{class:'warnbox mwarn',text:'Prohlížeč neumožňuje ukládání. Packy a rozehranou hru neuložíš, packy si zálohuj přes Export.'}));
