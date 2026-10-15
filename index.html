@@ -429,7 +429,6 @@ body[data-view=game]{padding-left:max(16px,env(safe-area-inset-left,0px)); paddi
 .rank li.first{border-color:var(--gold-hi); background:linear-gradient(180deg,#2a1118,#12080b)}
 .rank li .sc{margin-left:auto; font:700 1.5rem var(--font-display); font-variant-numeric:tabular-nums; color:var(--gold-hi)}
 
-.gmain>.players.ub{margin-left:var(--sw)}
 .players{flex:none; display:flex; gap:8px; overflow-x:auto; padding:4px 2px 4px; justify-content:safe center}
 .pcard{
   --bw:9px; position:relative; flex:1 1 0; min-width:118px; max-width:260px; display:flex; flex-direction:column; align-items:center; gap:2px;
@@ -492,8 +491,9 @@ const $=(s,r)=>(r||document).querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
 const clone=o=>JSON.parse(JSON.stringify(o));
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
-const APP_VERSION='2.3';
+const APP_VERSION='2.4';
 const CHANGELOG=[
+ ['2.4','Karty hráčů zpět na původní místo (vycentrované přes celou šířku).','Ve hře zůstává jen praskání ohně, odstraněn i souvislý hukot ohně (šum).'],
  ['2.3','Ve hře se ozývá jen oheň: pryč vítr, déšť, kapky i hřmění.','Karty hráčů se centrují pod herní plán (pokud se vejdou), ne k levému okraji.'],
  ['2.2','Nová videa na pozadí: hlavní menu (hrad a měsíc) i hra (postava s loučí v sále). V menu se při videu vypíná déšť a blesky na pozadí.'],
  ['2.1','Ve hře už neslyšíš drobný déšť (zůstává v hlavním menu).','V ☰ Menu ve hře jde přepnout pozadí mezi videem a statickým obrázkem.'],
@@ -755,10 +755,11 @@ function startAmbient(){
   /* fire: warm roar and a deep body, both flickering */
   const f=noiseSrc(), fb=ctx.createBiquadFilter(), fg=ctx.createGain();
   fb.type='bandpass'; fb.frequency.value=520; fb.Q.value=.6; fg.gain.value=.12;
-  f.connect(fb); fb.connect(fg); fg.connect(AU.sfxBus); lfo(fg.gain,.05,.37); lfo(fg.gain,.03,1.3); lfo(fb.frequency,160,.23);
+  const rv2=ctx.createGain(); rv2.gain.value=app.view==='game'?0:1; AU.roarGate=rv2; rv2.connect(AU.sfxBus);
+  f.connect(fb); fb.connect(fg); fg.connect(rv2); lfo(fg.gain,.05,.37); lfo(fg.gain,.03,1.3); lfo(fb.frequency,160,.23);
   const f2=noiseSrc(), fl=ctx.createBiquadFilter(), fg2=ctx.createGain();
   fl.type='lowpass'; fl.frequency.value=170; fg2.gain.value=.08;
-  f2.connect(fl); fl.connect(fg2); fg2.connect(AU.sfxBus); lfo(fg2.gain,.03,.5);
+  f2.connect(fl); fl.connect(fg2); fg2.connect(rv2); lfo(fg2.gain,.03,.5);
   dripLoop(); whooshLoop();
 }
 function dripLoop(){
@@ -988,7 +989,7 @@ function render(){
   const keep=root.scrollTop;
   root.replaceChildren();
   document.body.dataset.view=app.view;
-  try{ if(AU.rainGate&&AU.ctx) AU.rainGate.gain.setTargetAtTime(app.view==='game'?0:1,AU.ctx.currentTime,.15); }catch(e){}
+  try{ if(AU.ctx){ const v=app.view==='game'?0:1; if(AU.rainGate) AU.rainGate.gain.setTargetAtTime(v,AU.ctx.currentTime,.15); if(AU.roarGate) AU.roarGate.gain.setTargetAtTime(v,AU.ctx.currentTime,.15); } }catch(e){}
   const ab=$('#abtn'); if(ab) ab.hidden=app.view==='game'; const mb=$('#mbtn'); if(mb) mb.hidden=app.view==='game';
   if(app.view==='menu') viewMenu(root);
   else if(app.view==='editor') viewEditor(root);
@@ -1763,8 +1764,6 @@ function viewGame(root){
 }
 let gFrame=null, gBg=null;
 function measurePl(){ try{ const pl=gameRoot&&gameRoot.querySelector('.players'); if(pl&&gFrame){
-  const sw=parseFloat(getComputedStyle(gFrame).getPropertyValue('--sw'))||0, n=G?G.players.length:0;
-  const fits=sw>0&&gameRoot.clientWidth-sw>=n*126+16; pl.classList.toggle('ub',fits);
   gFrame.style.setProperty('--plh',(pl.offsetHeight+12)+'px'); } }catch(e){} }
 window.addEventListener('resize',()=>{ if(app.view==='game') measurePl(); });
 let intro=0, introT=0, introTm=[];
