@@ -429,6 +429,7 @@ body[data-view=game]{padding-left:max(16px,env(safe-area-inset-left,0px)); paddi
 .rank li.first{border-color:var(--gold-hi); background:linear-gradient(180deg,#2a1118,#12080b)}
 .rank li .sc{margin-left:auto; font:700 1.5rem var(--font-display); font-variant-numeric:tabular-nums; color:var(--gold-hi)}
 
+.gmain>.players.ub{margin-left:var(--sw)}
 .players{flex:none; display:flex; gap:8px; overflow-x:auto; padding:4px 2px 4px; justify-content:safe center}
 .pcard{
   --bw:9px; position:relative; flex:1 1 0; min-width:118px; max-width:260px; display:flex; flex-direction:column; align-items:center; gap:2px;
@@ -491,8 +492,9 @@ const $=(s,r)=>(r||document).querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
 const clone=o=>JSON.parse(JSON.stringify(o));
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
-const APP_VERSION='2.2';
+const APP_VERSION='2.3';
 const CHANGELOG=[
+ ['2.3','Ve hře se ozývá jen oheň: pryč vítr, déšť, kapky i hřmění.','Karty hráčů se centrují pod herní plán (pokud se vejdou), ne k levému okraji.'],
  ['2.2','Nová videa na pozadí: hlavní menu (hrad a měsíc) i hra (postava s loučí v sále). V menu se při videu vypíná déšť a blesky na pozadí.'],
  ['2.1','Ve hře už neslyšíš drobný déšť (zůstává v hlavním menu).','V ☰ Menu ve hře jde přepnout pozadí mezi videem a statickým obrázkem.'],
  ['2.0','Pozadí ve hře je nově video (sál s loučí ve smyčce). Dřívější překryvné animace se při videu vypínají; když se video nenačte, použije se dosavadní statické pozadí.'],
@@ -749,7 +751,7 @@ function startAmbient(){
   /* wind */
   const w=noiseSrc(), wb=ctx.createBiquadFilter(), wg=ctx.createGain();
   wb.type='bandpass'; wb.frequency.value=420; wb.Q.value=.9; wg.gain.value=.04;
-  w.connect(wb); wb.connect(wg); wg.connect(AU.sfxBus); lfo(wb.frequency,180,.05); lfo(wg.gain,.02,.07);
+  w.connect(wb); wb.connect(wg); wg.connect(rv); lfo(wb.frequency,180,.05); lfo(wg.gain,.02,.07);
   /* fire: warm roar and a deep body, both flickering */
   const f=noiseSrc(), fb=ctx.createBiquadFilter(), fg=ctx.createGain();
   fb.type='bandpass'; fb.frequency.value=520; fb.Q.value=.6; fg.gain.value=.12;
@@ -778,7 +780,7 @@ function dripLoop(){
 function whooshLoop(){
   const ctx=AU.ctx; if(!ctx) return;
   try{
-    if(ctx.state==='running'&&app.settings.sfx>0&&!document.hidden){
+    if(ctx.state==='running'&&app.settings.sfx>0&&!document.hidden&&app.view!=='game'){
       const t=ctx.currentTime, s=ctx.createBufferSource(); s.buffer=AU.noise;
       const bp=ctx.createBiquadFilter(); bp.type='bandpass'; bp.Q.value=.8;
       bp.frequency.setValueAtTime(350,t); bp.frequency.exponentialRampToValueAtTime(900,t+.5); bp.frequency.exponentialRampToValueAtTime(300,t+1.1);
@@ -976,7 +978,7 @@ function strike(power){
 function stormLoop(first){
   const menu=app.view==='menu';
   const wait=first?3500:(menu?6000+Math.random()*11000:15000+Math.random()*20000);
-  setTimeout(()=>{ strike(app.view==='menu'?1:.35); stormLoop(false); },wait);
+  setTimeout(()=>{ if(app.view==='menu') strike(1); stormLoop(false); },wait);
 }
 
 /* ---------- navigation ---------- */
@@ -1760,7 +1762,10 @@ function viewGame(root){
   renderGame();
 }
 let gFrame=null, gBg=null;
-function measurePl(){ try{ const pl=gameRoot&&gameRoot.querySelector('.players'); if(pl&&gFrame) gFrame.style.setProperty('--plh',(pl.offsetHeight+12)+'px'); }catch(e){} }
+function measurePl(){ try{ const pl=gameRoot&&gameRoot.querySelector('.players'); if(pl&&gFrame){
+  const sw=parseFloat(getComputedStyle(gFrame).getPropertyValue('--sw'))||0, n=G?G.players.length:0;
+  const fits=sw>0&&gameRoot.clientWidth-sw>=n*126+16; pl.classList.toggle('ub',fits);
+  gFrame.style.setProperty('--plh',(pl.offsetHeight+12)+'px'); } }catch(e){} }
 window.addEventListener('resize',()=>{ if(app.view==='game') measurePl(); });
 let intro=0, introT=0, introTm=[];
 function introClear(){ introTm.forEach(clearTimeout); introTm=[]; }
