@@ -489,8 +489,9 @@ const $=(s,r)=>(r||document).querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
 const clone=o=>JSON.parse(JSON.stringify(o));
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
-const APP_VERSION='2.0';
+const APP_VERSION='2.1';
 const CHANGELOG=[
+ ['2.1','Ve hře už neslyšíš drobný déšť (zůstává v hlavním menu).','V ☰ Menu ve hře jde přepnout pozadí mezi videem a statickým obrázkem.'],
  ['2.0','Pozadí ve hře je nově video (sál s loučí ve smyčce). Dřívější překryvné animace se při videu vypínají; když se video nenačte, použije se dosavadní statické pozadí.'],
  ['1.9','V menu je nové tlačítko Zobrazení: Automaticky / Telefon / Počítač. Rozložení pro telefon nebo počítač lze zvolit ručně.'],
  ['1.8','Nový typ kola „Všichni odpovídají“: jedno téma, všechny otázky za stejné body, odpovídají všichni na papír a host body přidělí. Lze nastavit, jestli za špatnou odpověď body ubývají (štít chrání).','V nastavení hráče (✎) jde přidat nebo odebrat štít.','Testovací pack má jako 2. kolo kolo pro všechny.'],
@@ -601,7 +602,7 @@ const countQ=p=>p.rounds.reduce((n,r)=>n+r.themes.reduce((m,t)=>m+t.questions.le
 const app={
   view:'menu',
   userPacks:[],
-  settings:{count:4,names:[],icons:ICONS.slice(0,10),timeQ:30,timeFinal:60,music:.45,sfx:.6,mute:false,layout:'auto',packId:'test'},
+  settings:{count:4,names:[],icons:ICONS.slice(0,10),timeQ:30,timeFinal:60,music:.45,sfx:.6,mute:false,layout:'auto',bgVideo:true,packId:'test'},
   edit:{packId:null,tab:0}
 };
 let G=null, gameRoot=null, saveTimer=null;
@@ -740,7 +741,8 @@ function startAmbient(){
   /* drizzle: only a faint hiss, the rest are tiny drops (dripLoop) */
   const r=noiseSrc(), rb=ctx.createBiquadFilter(), rg=ctx.createGain();
   rb.type='bandpass'; rb.frequency.value=4200; rb.Q.value=.5; rg.gain.value=.0022;
-  r.connect(rb); rb.connect(rg); rg.connect(AU.sfxBus); lfo(rg.gain,.001,.05);
+  const rv=ctx.createGain(); rv.gain.value=app.view==='game'?0:1; AU.rainGate=rv;
+  r.connect(rb); rb.connect(rg); rg.connect(rv); rv.connect(AU.sfxBus); lfo(rg.gain,.001,.05);
   /* wind */
   const w=noiseSrc(), wb=ctx.createBiquadFilter(), wg=ctx.createGain();
   wb.type='bandpass'; wb.frequency.value=420; wb.Q.value=.9; wg.gain.value=.04;
@@ -757,7 +759,7 @@ function startAmbient(){
 function dripLoop(){
   const ctx=AU.ctx; if(!ctx) return;
   try{
-    if(ctx.state==='running'&&app.settings.sfx>0&&!document.hidden){
+    if(ctx.state==='running'&&app.settings.sfx>0&&!document.hidden&&app.view!=='game'){
       const t=ctx.currentTime, n=1+Math.floor(Math.random()*2);
       for(let k=0;k<n;k++){
         const s=ctx.createBufferSource(); s.buffer=AU.noise;
@@ -981,6 +983,7 @@ function render(){
   const keep=root.scrollTop;
   root.replaceChildren();
   document.body.dataset.view=app.view;
+  try{ if(AU.rainGate&&AU.ctx) AU.rainGate.gain.setTargetAtTime(app.view==='game'?0:1,AU.ctx.currentTime,.15); }catch(e){}
   const ab=$('#abtn'); if(ab) ab.hidden=app.view==='game'; const mb=$('#mbtn'); if(mb) mb.hidden=app.view==='game';
   if(app.view==='menu') viewMenu(root);
   else if(app.view==='editor') viewEditor(root);
@@ -1077,6 +1080,7 @@ function menuDivider(){
    '<g transform="translate(192 4) scale(.16)"><polygon points="'+STAR+'" fill="#f1d08f"/></g></svg>');
 }
 function gameVideo(){
+  if(app.settings.bgVideo===false) return null;
   const v=document.createElement('video');
   v.className='mvid'; v.muted=true; v.defaultMuted=true; v.loop=true; v.autoplay=true; v.playsInline=true; v.preload='auto'; v.setAttribute('muted',''); v.setAttribute('playsinline','');
   v.disablePictureInPicture=true; v.setAttribute('aria-hidden','true');
@@ -2074,6 +2078,7 @@ function openGameMenu(){
     h('div',{class:'mgrid'},
       act('♪ Hudba a zvuky',openAudioPanel),
       act('Zobrazení (telefon / počítač)',openLayoutPanel),
+      act('Pozadí: '+(app.settings.bgVideo===false?'statický obrázek → přepnout na video':'video → přepnout na statický obrázek'),()=>{app.settings.bgVideo=app.settings.bgVideo===false; saveSettings(); go('game'); toast(app.settings.bgVideo?'Pozadí: video':'Pozadí: statický obrázek');}),
       h('button',{class:'btn',onclick:()=>{closeModal();try{const p=document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen(); if(p&&p.catch) p.catch(()=>toast('Celá obrazovka tu není dostupná'));}catch(e){toast('Celá obrazovka tu není dostupná');}}},'Celá obrazovka'),
       act('Opustit hru (zůstane uložena)',()=>{G=null;go('menu');}),
       act('Smazat hru a do menu',()=>confirmBox('Smazat rozehranou hru? Nejde to vrátit.','Smazat',()=>{S.del(LS_GAME);G=null;go('menu');},true),'bad')),
