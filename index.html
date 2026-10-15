@@ -152,18 +152,22 @@ html:has(.bgfx.menu.vid) #flash{display:none!important}
 .glow.gc{width:calc(var(--W)*.34); background:radial-gradient(circle,#ff8a3a30,#ff6a0012 45%,transparent 70%); animation:pulse 5s ease-in-out infinite}
 @keyframes flick{0%{opacity:.75}12%{opacity:.95}27%{opacity:.6}41%{opacity:.9}58%{opacity:.7}73%{opacity:1}88%{opacity:.65}}
 @keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}
-.mlogo{position:absolute; left:calc(var(--W)*.385); top:calc(var(--H)*.25); height:calc(var(--H)*.415); transform:translateX(-50%); filter:drop-shadow(0 0 22px #e0802455) drop-shadow(0 5px 6px #000)}
-.mtitle{position:absolute; left:calc(var(--W)*.385); top:calc(var(--H)*.485); margin:0; transform:translateX(-50%); white-space:nowrap;
+.mlogo{position:absolute; left:calc(var(--W)*.5); top:calc(var(--H)*.25); height:calc(var(--H)*.415); transform:translateX(-50%); filter:drop-shadow(0 0 22px #e0802455) drop-shadow(0 5px 6px #000)}
+.mtitle{position:absolute; left:calc(var(--W)*.5); top:calc(var(--H)*.485); margin:0; transform:translateX(-50%); white-space:nowrap;
   font:900 calc(var(--W)*.07)/1.05 var(--font-display); letter-spacing:.05em;
   background:linear-gradient(180deg,#ffeaa8 8%,#e3a94f 50%,#8a5217 100%); -webkit-background-clip:text; background-clip:text; color:transparent;
   filter:drop-shadow(0 0 22px #e0802455) drop-shadow(0 5px 6px #000)}
-.msub{position:absolute; left:calc(var(--W)*.385); top:calc(var(--H)*.685); margin:0; transform:translateX(-50%); white-space:nowrap;
+.msub{position:absolute; left:calc(var(--W)*.5); top:calc(var(--H)*.685); margin:0; transform:translateX(-50%); white-space:nowrap;
   font:600 calc(var(--W)*.018)/1 var(--font-display); letter-spacing:.6em; padding-left:.6em; color:var(--gold-hi); text-shadow:0 0 14px #e0802466,0 2px 4px #000}
-.mdiv{position:absolute; left:calc(var(--W)*.385); top:calc(var(--H)*.725); width:calc(var(--W)*.27); transform:translateX(-50%)}
-.mbtns{position:absolute; left:calc(var(--W)*.385); top:calc(var(--H)*.785); transform:translateX(-50%); display:flex; gap:calc(var(--W)*.008); justify-content:center}
+.mdiv{position:absolute; left:calc(var(--W)*.5); top:calc(var(--H)*.725); width:calc(var(--W)*.27); transform:translateX(-50%)}
+.mbtns{position:absolute; left:calc(var(--W)*.5); top:calc(var(--H)*.785); transform:translateX(-50%); display:flex; gap:calc(var(--W)*.008); justify-content:center}
 .mbtns .btn{font-size:clamp(11px,calc(var(--W)*.0092),17px); padding:.75em 1.5em; white-space:nowrap; background-color:#0009}
 .mbtns .btn.primary{background:linear-gradient(180deg,var(--wine2),var(--wine))}
-.minfo{position:absolute; left:calc(var(--W)*.385); top:calc(var(--H)*.865); margin:0; transform:translateX(-50%); white-space:nowrap; color:var(--muted); font-size:clamp(12px,calc(var(--W)*.0085),16px); text-shadow:0 1px 3px #000}
+.minfo{position:absolute; left:calc(var(--W)*.5); top:calc(var(--H)*.865); margin:0; transform:translateX(-50%); white-space:nowrap; color:var(--muted); font-size:clamp(12px,calc(var(--W)*.0085),16px); text-shadow:0 1px 3px #000}
+.mcol>*{transition:opacity 1.6s ease}
+.mcol.hid>*{opacity:0; pointer-events:none}
+.mintro{position:absolute; inset:0; z-index:5; cursor:pointer}
+.mintro span{position:absolute; left:50%; bottom:9%; transform:translateX(-50%); color:#f3e3b8; opacity:.38; font:600 clamp(12px,1.1vw,16px) var(--font-display); letter-spacing:.45em; text-transform:uppercase; text-shadow:0 1px 4px #000; animation:pulse 3.2s ease-in-out infinite}
 .mhint{position:absolute; left:50%; bottom:16px; transform:translateX(-50%); z-index:6; color:var(--gold-hi); font:600 .8rem var(--font-display); letter-spacing:.12em; text-transform:uppercase; text-shadow:0 1px 4px #000; animation:pulse 2.6s ease-in-out infinite; pointer-events:none}
 .mwarn{position:absolute; left:16px; bottom:16px; max-width:320px; z-index:6}
 .ver{position:fixed; left:max(8px,env(safe-area-inset-left,0px)); bottom:calc(3px + env(safe-area-inset-bottom,0px)); z-index:20; background:none; border:0; padding:2px 4px; font:500 13px var(--font-body); letter-spacing:.04em; color:#d8c9a8; opacity:.65; cursor:pointer}
@@ -491,8 +495,9 @@ const $=(s,r)=>(r||document).querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
 const clone=o=>JSON.parse(JSON.stringify(o));
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
-const APP_VERSION='2.6';
+const APP_VERSION='2.7';
 const CHANGELOG=[
+ ['2.7','Hlavní menu: logo, tlačítka a nápisy vycentrované. Po otevření nejdřív jen pozadí: 1. klik spustí hudbu a zvuky, 2. klik zobrazí logo a tlačítka (nenápadný nápis „pokračovat“).','Sova houká po dvojicích („hu-huuu“), několikrát po sobě a méně často.'],
  ['2.6','Sova je výrazně hlasitější a častější. Hrom trvá déle (6–12 s) a střídá se klasický hrom s hlubokým vzdáleným dunění se sub-basem.'],
  ['2.5','Zvuky v hlavním menu: pryč syčivý šum ohně, deště a kapek; nově jemný vítr, šustění listí, cvrčci a občasná sova (noční příroda). Ve hře beze změny (jen praskání ohně).'],
  ['2.4','Karty hráčů zpět na původní místo (vycentrované přes celou šířku).','Ve hře zůstává jen praskání ohně, odstraněn i souvislý hukot ohně (šum).'],
@@ -729,7 +734,7 @@ function audioStart(){
     AU.revS=ctx.createConvolver(); AU.revS.buffer=mkImpulse(ctx,2.4,2.6); AU.revS.connect(AU.sfxBus);
     AU.noise=mkNoise(ctx,3);
     applyVol(); startAmbient(); crackleLoop(); setInterval(musicTick,500); musicTick();
-    const hint=$('.mhint'); if(hint) hint.remove();
+    
   }catch(e){ AU.ctx=null; }
 }
 function route(node,send){
@@ -755,7 +760,7 @@ function startAmbient(){
   const l=noiseSrc(), lh=ctx.createBiquadFilter(), lb=ctx.createBiquadFilter(), lg=ctx.createGain();
   lh.type='highpass'; lh.frequency.value=2200; lb.type='bandpass'; lb.frequency.value=4800; lb.Q.value=.45; lg.gain.value=.011;
   l.connect(lh); lh.connect(lb); lb.connect(lg); lg.connect(rv); lfo(lg.gain,.008,.07); lfo(lg.gain,.004,.19);
-  cricketLoop(); owlLoop();
+  cricketLoop(); owlLoop(true);
 }
 function cricketLoop(){
   const ctx=AU.ctx; if(!ctx) return;
@@ -776,23 +781,26 @@ function cricketLoop(){
   }catch(e){}
   setTimeout(cricketLoop,1400+Math.random()*3200);
 }
-function owlLoop(){
+function owlLoop(first){
   const ctx=AU.ctx; if(!ctx) return;
   try{
-    if(ctx.state==='running'&&app.settings.sfx>0&&!document.hidden&&app.view!=='game'){
-      /* distant owl: a soft "hu-hu-huuu" */
-      const t=ctx.currentTime+.05, base=330+Math.random()*50;
-      [[0,.28,1],[.42,.28,.95],[.9,.7,.88]].forEach(([d,len,m])=>{
-        const o=ctx.createOscillator(), g=ctx.createGain(), lp=ctx.createBiquadFilter();
-        o.type='sine'; lp.type='lowpass'; lp.frequency.value=900;
-        o.frequency.setValueAtTime(base*m*1.06,t+d); o.frequency.exponentialRampToValueAtTime(base*m*.94,t+d+len);
-        g.gain.setValueAtTime(0,t+d); g.gain.linearRampToValueAtTime(.075,t+d+.08); g.gain.exponentialRampToValueAtTime(.0001,t+d+len);
-        o.connect(lp); lp.connect(g); g.connect(AU.rainGate); const r=ctx.createGain(); r.gain.value=.35; g.connect(r); r.connect(AU.revS);
-        o.start(t+d); o.stop(t+d+len+.05);
-      });
+    if(!first&&ctx.state==='running'&&app.settings.sfx>0&&!document.hidden&&app.view!=='game'){
+      /* tawny owl: a call is two hoots ("hu-huuu"), repeated a few times in a row */
+      const base=330+Math.random()*50, calls=2+Math.floor(Math.random()*3), t0=ctx.currentTime+.05;
+      for(let c=0;c<calls;c++){
+        const t=t0+c*(3+Math.random()*.8);
+        [[0,.3,1],[.55,.85,.9]].forEach(([d,len,m])=>{
+          const o=ctx.createOscillator(), g=ctx.createGain(), lp=ctx.createBiquadFilter();
+          o.type='sine'; lp.type='lowpass'; lp.frequency.value=900;
+          o.frequency.setValueAtTime(base*m*1.05,t+d); o.frequency.exponentialRampToValueAtTime(base*m*.93,t+d+len);
+          g.gain.setValueAtTime(0,t+d); g.gain.linearRampToValueAtTime(.075,t+d+.08); g.gain.exponentialRampToValueAtTime(.0001,t+d+len);
+          o.connect(lp); lp.connect(g); g.connect(AU.rainGate); const r=ctx.createGain(); r.gain.value=.35; g.connect(r); r.connect(AU.revS);
+          o.start(t+d); o.stop(t+d+len+.05);
+        });
+      }
     }
   }catch(e){}
-  setTimeout(owlLoop,9000+Math.random()*14000);
+  setTimeout(owlLoop,first?7000:45000+Math.random()*45000);
 }
 function dripLoop(){
   const ctx=AU.ctx; if(!ctx) return;
@@ -1164,6 +1172,7 @@ function buildBg(mode){
   if(game) el.style.setProperty('--bgimg','url('+GAME_BG+')');
   return {el:el,stage:stage,scene:sc};
 }
+let introDone=false, introClicks=0;
 function viewMenu(root){
   const sg=savedGameInfo();
   const btns=[];
@@ -1172,14 +1181,18 @@ function viewMenu(root){
             h('button',{class:'btn',onclick:()=>{app.edit.packId=app.edit.packId||(app.userPacks[0]&&app.userPacks[0].id)||'test';go('editor');}},'Vytvořit pack'),
             h('button',{class:'btn',onclick:openLayoutPanel},'Zobrazení: '+({auto:'automaticky',mobile:'telefon',pc:'počítač'}[app.settings.layout||'auto'])));
   const bg=buildBg('menu');
-  bg.stage.append(h('div',{class:'mcol'},
+  bg.stage.append(h('div',{class:'mcol'+(introDone?'':' hid')},
     hoodLogo(),
     h('p',{class:'msub',text:'KVÍZ'}),
     menuDivider(),
     h('div',{class:'mbtns'},btns),
     sg&&h('p',{class:'minfo',text:'Rozehraná hra: '+sg.pack.name+' · '+sg.players.length+' hráčů · '+(sg.phase==='results'?'výsledky':sg.phase.indexOf('final')===0?'finále':'kolo '+(sg.roundIdx+1))})));
   bg.el.append(
-    !AU.ctx&&h('div',{class:'mhint',text:'♪ Hudba a zvuky se zapnou po prvním kliknutí'}),
+    !introDone&&h('div',{class:'mintro',role:'button',tabindex:0,'aria-label':'Pokračovat',onclick:function(){
+      audioStart(); introClicks++;
+      if(introClicks>=2||!AU.ctx&&introClicks>=1){ introDone=true; const mc=bg.stage.querySelector('.mcol'); if(mc) mc.classList.remove('hid'); this.remove(); }
+      else { const sp=this.querySelector('span'); if(sp) sp.style.animation='pulse 3.2s ease-in-out infinite'; }
+    },onkeydown:function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); this.click(); } }},h('span',{text:'pokračovat'})),
     !storageOk&&h('div',{class:'warnbox mwarn',text:'Prohlížeč neumožňuje ukládání. Packy a rozehranou hru neuložíš, packy si zálohuj přes Export.'}));
   root.append(bg.el);
   startBgFx(bg,{});
