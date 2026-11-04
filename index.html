@@ -482,6 +482,7 @@ body[data-view=game]{padding-left:max(16px,env(safe-area-inset-left,0px)); paddi
 .pcard .pedit{position:absolute; right:0; top:-2px; border:0; background:transparent; color:var(--muted); padding:2px 6px}
 .pcard .pedit:hover{color:var(--gold-hi)}
 .pcard .badge{position:absolute; left:50%; top:-14px; transform:translateX(-50%); background:linear-gradient(180deg,var(--wine2),var(--wine)); border:1px solid var(--gold); color:var(--gold-hi); font:700 .65rem var(--font-display); letter-spacing:.1em; text-transform:uppercase; padding:0 8px; white-space:nowrap}
+.pmem{font-size:.62em;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pcard.chooser{box-shadow:0 0 0 2px var(--gold-hi),0 0 24px #d3a15a77}
 .pcard.answering{box-shadow:0 0 0 3px #5fd07f,0 0 28px #5fd07f88}
 .pcard.failed{opacity:.45}
@@ -525,8 +526,9 @@ const $=(s,r)=>(r||document).querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
 const clone=o=>JSON.parse(JSON.stringify(o));
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
-const APP_VERSION='2.10';
+const APP_VERSION='2.11';
 const CHANGELOG=[
+ ['2.11','Hra v týmech: v nastavení lze zvolit „Týmy“ (název, postava a volitelně členové týmu); body jsou společné a u týmu se ukazuje, kdo je právě na řadě.','Nové nastavení pořadí: „Vítěz vybírá“ (dosavadní) nebo „Postupně“ – hráč po hráči / tým po týmu, vždy další po skončení otázky.'],
  ['2.10','Otázky mají podtext (menší písmo pod otázkou) a obrázek odpovědi. U „Co tu chybí?“ se po odhalení chybějící hráč ukáže velký a po 3 s doletí na své místo v koláži.','Téma „Na sluch“ přejmenováno na „Slyšíš to?“, opravy textů; u „Kdo to řekl?“ je jméno na zvláštním řádku.'],
  ['2.9.1','Testovací pack, téma „Co tu chybí?“: čas na otázku zdvojnásoben (60 s) a otázka za 30 000 používá všech 23 fotek 1. řady (chybí Věra).'],
  ['2.9','Otázky mohou mít audio ukázku: tlačítko „Přehrát ukázku“ spustí odpočet 3-2-1 s pípnutím a pak zvuk (hudba hry se ztlumí). Audio lze přidat v editoru otázky.','Testovací pack: kolo 1 nahrazeno tématy 1. řada, Bizár, Na sluch, Kdo to řekl?, Co tu chybí?.'],
@@ -651,7 +653,7 @@ const countQ=p=>p.rounds.reduce((n,r)=>n+r.themes.reduce((m,t)=>m+t.questions.le
 const app={
   view:'menu',
   userPacks:[],
-  settings:{count:4,names:[],icons:ICONS.slice(0,10),timeQ:30,timeFinal:60,music:.45,sfx:.6,mute:false,layout:'auto',bgVideo:true,packId:'test'},
+  settings:{mode:'players',teamCount:2,tnames:[],members:[],order:'winner',count:4,names:[],icons:ICONS.slice(0,10),timeQ:30,timeFinal:60,music:.45,sfx:.6,mute:false,layout:'auto',bgVideo:true,packId:'test'},
   edit:{packId:null,tab:0}
 };
 let G=null, gameRoot=null, saveTimer=null;
@@ -1685,16 +1687,23 @@ function viewSetup(root){
     h('div',{class:'pack-list'},packs.map(p=>h('button',{class:'pack-item'+(p.id===s.packId?' on':''),onclick:()=>{s.packId=p.id;saveSettings();render();}},
       h('b',{text:p.name||'(bez názvu)'}),h('span',{class:'meta',text:p.rounds.length+' kol · '+countQ(p)+' otázek'+(p.final&&p.final.enabled?' · finále':'')})))));
   const players=h('div',{style:'display:flex;flex-direction:column;gap:8px'});
-  for(let i=0;i<s.count;i++){
-    players.append(h('div',{class:'prow'},
+  const teams=s.mode==='teams';
+  for(let i=0;i<(teams?s.teamCount:s.count);i++){
+    if(teams) players.append(h('div',{class:'prow',style:'flex-wrap:wrap'},
+      h('button',{class:'avatar-btn',title:'Změnit postavu',onclick:()=>pickIcon(i)},avatar(s.icons[i],i)),
+      h('input',{class:'txt',value:s.tnames[i]||'',placeholder:'Tým '+(i+1),maxlength:24,'aria-label':'Název týmu '+(i+1),oninput:e=>{s.tnames[i]=e.target.value;saveSettings();}}),
+      h('input',{class:'txt',style:'flex:1 1 100%',value:s.members[i]||'',placeholder:'Členové týmu – jména oddělená čárkou (nepovinné)',maxlength:120,'aria-label':'Členové týmu '+(i+1),oninput:e=>{s.members[i]=e.target.value;saveSettings();}})));
+    else players.append(h('div',{class:'prow'},
       h('button',{class:'avatar-btn',title:'Změnit postavu',onclick:()=>pickIcon(i)},avatar(s.icons[i],i)),
       h('input',{class:'txt',value:s.names[i]||'',placeholder:'Hráč '+(i+1),maxlength:24,'aria-label':'Jméno hráče '+(i+1),oninput:e=>{s.names[i]=e.target.value;saveSettings();}})));
   }
   const stepper=(label,get,set,min,max,stepv)=>h('div',{class:'row between'},h('span',{text:label}),
     h('div',{class:'stepper'},h('button',{class:'btn sm',onclick:()=>{set(clamp(get()-stepv,min,max));saveSettings();render();}},'−'),h('b',{text:get()+' s'}),h('button',{class:'btn sm',onclick:()=>{set(clamp(get()+stepv,min,max));saveSettings();render();}},'+')));
   const right=h('div',{class:'card',style:'display:flex;flex-direction:column;gap:14px'},
-    h('h2',{text:'Hráči'}),
-    h('div',{class:'row'},h('span',{text:'Počet hráčů'}),h('div',{class:'chips'},[2,3,4,5,6,7,8,9,10].map(n=>h('button',{class:'chip'+(s.count===n?' on':''),onclick:()=>{s.count=n;saveSettings();render();}},n)))),
+    h('h2',{text:teams?'Týmy':'Hráči'}),
+    h('div',{class:'row'},h('span',{text:'Hraje se'}),h('div',{class:'chips'},[['players','Jednotlivci'],['teams','Týmy']].map(m=>h('button',{class:'chip'+(s.mode===m[0]?' on':''),style:'width:auto;padding:0 14px',onclick:()=>{s.mode=m[0];saveSettings();render();}},m[1])))),
+    h('div',{class:'row'},h('span',{text:'Pořadí'}),h('div',{class:'chips'},[['winner','Vítěz vybírá'],['rotate',teams?'Postupně tým po týmu':'Postupně hráč po hráči']].map(m=>h('button',{class:'chip'+(s.order===m[0]?' on':''),style:'width:auto;padding:0 14px',onclick:()=>{s.order=m[0];saveSettings();render();}},m[1])))),
+    h('div',{class:'row'},h('span',{text:teams?'Počet týmů':'Počet hráčů'}),h('div',{class:'chips'},(teams?[2,3,4,5,6]:[2,3,4,5,6,7,8,9,10]).map(n=>h('button',{class:'chip'+((teams?s.teamCount:s.count)===n?' on':''),onclick:()=>{if(teams) s.teamCount=n; else s.count=n; saveSettings();render();}},n)))),
     players,
     h('div',{class:'sec',text:'Časy a zvuk'}),
     stepper('Čas na otázku',()=>s.timeQ,v=>{s.timeQ=v;},5,120,5),
@@ -1715,8 +1724,10 @@ const TIMED=['question','finalQ','allq'];
 function startGame(pack){
   const s=app.settings;
   const players=[]; const names=new Set();
-  for(let i=0;i<s.count;i++){ players.push({name:(s.names[i]||'').trim()||('Hráč '+(i+1)),icon:s.icons[i],score:0}); }
-  G={pack:clone(pack),players:players,roundIdx:0,used:{},chooser:Math.floor(Math.random()*players.length),phase:'board',cur:null,paused:false,
+  const teams=s.mode==='teams';
+  if(teams){ for(let i=0;i<s.teamCount;i++){ players.push({name:(s.tnames[i]||'').trim()||('Tým '+(i+1)),icon:s.icons[i],score:0,turn:0,members:(s.members[i]||'').split(',').map(x=>x.trim()).filter(Boolean)}); } }
+  else for(let i=0;i<s.count;i++){ players.push({name:(s.names[i]||'').trim()||('Hráč '+(i+1)),icon:s.icons[i],score:0}); }
+  G={pack:clone(pack),mode:teams?'teams':'players',order:s.order==='rotate'?'rotate':'winner',players:players,roundIdx:0,used:{},chooser:Math.floor(Math.random()*players.length),phase:'board',cur:null,paused:false,
     timer:{left:0,total:0,running:false,expired:false},fin:null,history:[],timeQ:s.timeQ,timeFinal:s.timeFinal};
   delete G.pack.builtin;
   if(roundDone()) G.phase='roundEnd';
@@ -1758,13 +1769,15 @@ function startTimer(sec){G.timer={left:sec,total:sec,running:true,expired:false}
 function stopTimer(){G.timer.running=false;}
 const qTime=c=>(qdOf(c).time)||G.timeQ;
 const pname=i=>G.players[i].name;
+const memberOf=i=>{const p=G.players[i]; return (G.mode==='teams'&&p.members&&p.members.length)?p.members[(p.turn||0)%p.members.length]:'';};
+const memberTag=i=>{const m=memberOf(i); return m?' ('+m+')':'';};
 
 function pickCell(t,q){
   if(G.paused) return;
   { const _q=curRound().themes[t].questions[q]; sfx(_q&&_q.type==='shield'?'ok':'pick'); }
   commit(()=>{
     const qd=curRound().themes[t].questions[q];
-    G.cur={t:t,q:q,key:qKey(t,q),price:qd.price,type:qd.type,answerer:null,failed:[],locked:false,result:null,winner:null,target:null,bidder:null};
+    G.cur={picker:G.chooser,t:t,q:q,key:qKey(t,q),price:qd.price,type:qd.type,answerer:null,failed:[],locked:false,result:null,winner:null,target:null,bidder:null};
     if(curRound().kind==='all'){ G.cur.price=curRound().price||qd.price; G.cur.type='all'; G.cur.marks={}; G.phase='allq'; startTimer(qTime(G.cur)); return; }
     if(qd.type==='shield'){ G.cur.winner=G.chooser; G.cur.result='shield'; G.players[G.chooser].shield=true; G.used[G.cur.key]=true; G.phase='reveal'; }
     else if(qd.type==='cat'){ G.phase='cat'; }
@@ -1788,7 +1801,7 @@ function pickAnswerer(i){
 function finishQ(){G.used[G.cur.key]=true; G.phase='reveal'; stopTimer();}
 function correct(){
   if(G.phase!=='question'||G.paused||G.cur.answerer==null) return;
-  commit(()=>{const a=G.cur.answerer; G.players[a].score+=G.cur.price; G.chooser=a; G.cur.result='correct'; G.cur.winner=a; finishQ();});
+  commit(()=>{const a=G.cur.answerer; G.players[a].score+=G.cur.price; if(G.order!=='rotate') G.chooser=a; G.cur.result='correct'; G.cur.winner=a; finishQ();});
   sfx('ok');
 }
 function wrong(){
@@ -1849,7 +1862,9 @@ function allJView(){
     h('button',{class:'btn primary big',onclick:allConfirm},'Potvrdit a přidat body'));
 }
 function cancelQ(){commit(()=>{G.cur=null; G.phase='board'; stopTimer();});}
-function continueAfterReveal(){commit(()=>{G.cur=null; G.phase=roundDone()?'roundEnd':'board';});}
+function continueAfterReveal(){commit(()=>{
+  if(G.cur&&G.cur.picker!=null&&G.players[G.cur.picker]){ const pk=G.players[G.cur.picker]; if(G.mode==='teams') pk.turn=(pk.turn||0)+1; if(G.order==='rotate') G.chooser=(G.cur.picker+1)%G.players.length; }
+  G.cur=null; G.phase=roundDone()?'roundEnd':'board';});}
 function confirmCat(){
   if(G.cur.target==null) return;
   commit(()=>{G.cur.answerer=G.cur.target; G.cur.locked=true; G.phase='question'; startTimer(qTime(G.cur));});
@@ -2036,7 +2051,7 @@ function stageView(){
 function boardView(){
   const R=curRound();
   const wrap=h('div',{class:'qwrap'});
-  wrap.append(h('div',{class:'turn'},'Vybírá: ',h('b',{text:pname(G.chooser)}),'  ·  klikni na hráče pro změnu'));
+  wrap.append(h('div',{class:'turn'},'Vybírá: ',h('b',{text:pname(G.chooser)+memberTag(G.chooser)}),'  ·  klikni na '+(G.mode==='teams'?'tým':'hráče')+' pro změnu'));
   if(!R||!R.themes.length){wrap.append(h('div',{class:'center-col'},h('p',{class:'muted',text:'Toto kolo nemá žádná témata.'}),h('button',{class:'btn primary',onclick:()=>commit(()=>{G.phase='roundEnd';})},'Pokračovat')));return wrap;}
   if(R.kind==='all'){
     const t=R.themes[0], n=t.questions.length, cols=Math.max(1,Math.min(n,5)), rows=Math.max(1,Math.ceil(n/cols));
@@ -2226,7 +2241,7 @@ function playersBar(){
       badge&&h('span',{class:'badge',text:badge}),
       h('button',{class:'pedit',title:'Upravit jméno, postavu nebo body',onclick:e=>{e.stopPropagation();openPlayerModal(i);}},'✎'),
       h('div',{class:'pportrait'},avatar(p.icon,i),star('pstar'),p.shield&&h('img',{class:'pshield',src:SHIELD_SRC,alt:'Štít',title:'Má štít: jedna špatná odpověď bez ztráty bodů'})),
-      h('div',{class:'pplate'},h('div',{class:'pname',text:p.name}),h('div',{class:'pscore'+(p.score<0?' neg':''),text:fmt(p.score)}))));
+      h('div',{class:'pplate'},h('div',{class:'pname',text:p.name}),(G.mode==='teams'&&memberOf(i))&&h('div',{class:'pmem',text:'na řadě: '+memberOf(i)}),h('div',{class:'pscore'+(p.score<0?' neg':''),text:fmt(p.score)}))));
   });
   return bar;
 }
@@ -2243,13 +2258,13 @@ function openPlayerModal(i){
   scoreIn.addEventListener('change',()=>apply(Number(scoreIn.value)));
   const taken=new Set(G.players.map((q,k)=>k!==i?q.icon:null));
   const iconGrid=h('div',{class:'ico-grid'},ICONS.map((ic,k)=>h('button',{class:'ico'+(p.icon===ic?' on':''),disabled:taken.has(ic),onclick:()=>{commit(()=>{G.players[i].icon=ic;}); openPlayerModal(i);}},avatar(ic,k))));
-  openModal('Hráč '+(i+1)+': '+p.name,h('div',{class:'mbody'},
+  openModal((G.mode==='teams'?'Tým ':'Hráč ')+(i+1)+': '+p.name,h('div',{class:'mbody'},
     h('label',{class:'f'},'Jméno',h('input',{class:'txt',value:p.name,maxlength:24,oninput:e=>{G.players[i].name=e.target.value||('Hráč '+(i+1));persist();renderGame();}})),
     h('div',{class:'sec',text:'Body'}),
     h('div',{class:'row'},scoreIn,
       [-10000,-1000,1000,10000].map(d=>h('button',{class:'btn sm',onclick:()=>apply(G.players[i].score+d)},(d>0?'+':'−')+Math.abs(d))),
       h('button',{class:'btn sm',onclick:()=>apply(0)},'Vynulovat')),
-    h('div',{class:'row'},h('button',{class:'btn',disabled:G.chooser===i,onclick:()=>{commit(()=>{G.chooser=i;});closeModal();}},'Nastavit jako hráče na tahu')),
+    h('div',{class:'row'},h('button',{class:'btn',disabled:G.chooser===i,onclick:()=>{commit(()=>{G.chooser=i;});closeModal();}},'Nastavit jako na tahu')),
     h('div',{class:'sec',text:'Štít'}),
     h('div',{class:'row'},h('img',{src:SHIELD_SRC,alt:'',style:'height:40px'}),h('span',{text:p.shield?'Hráč má štít.':'Hráč nemá štít.'}),
       h('button',{class:'btn',onclick:()=>{commit(()=>{G.players[i].shield=!G.players[i].shield;}); openPlayerModal(i);}},p.shield?'Odebrat štít':'Dát štít')),
