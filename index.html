@@ -539,8 +539,9 @@ const $=(s,r)=>(r||document).querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
 const clone=o=>JSON.parse(JSON.stringify(o));
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
-const APP_VERSION='2.13.2';
+const APP_VERSION='2.13.3';
 const CHANGELOG=[
+ ['2.13.3','Otázky „Co tu chybí?“ s obrázky (hrad s měsícem, Vojta se slzou) mají zase bez animací: po odhalení se rovnou ukáže obrázek správné odpovědi.'],
  ['2.13.2','„Co tu chybí?“ s obrázky: nejdřív se původní obrázek zvětší do středu obrazovky, pak naskočí text správné odpovědi a obrázek se prolne s novým; až potom se zmenší zpět na místo.'],
  ['2.13.1','Animace odpovědi i u otázek „Co tu chybí?“ s obrázky (hrad s měsícem, Vojta se slzou): obrázek se plynule zvětší, prolne s obrázkem správné odpovědi a pak se zmenší zpět.'],
  ['2.13','„Co tu chybí?“: fotka chybějícího se v odpovědi plynule prolne a zvětší, chvíli zůstane velká a pak se plynule zmenší zpět na své místo v koláži.'],
@@ -740,7 +741,7 @@ function readImage(file){
 
 /* answer picture: either a replacement image, or a photo that appears big and then flies into the empty slot of the collage */
 function revealPic(qd){
-  if(qd.aimage&&qd.image) return fillBox(qd);
+  if(qd.aimage&&qd.image&&qd.fill) return fillBox(qd);
   const src=qd.aimage||qd.image; return src&&h('img',{class:'qimg',src:src,alt:''});
 }
 function fillBox(qd){
@@ -2183,7 +2184,7 @@ function revealView(){
   if(G.cur&&G.cur.type==='shield') return shieldRevealView();
   const c=G.cur, qd=qdOf(c), theme=curRound().themes[c.t].name;
   const res=c.result==='correct'?h('div',{class:'result ok'},h('b',{text:pname(c.winner)}),' získává ',h('b',{text:'+'+fmt(c.price)})):h('div',{class:'result',text:'Nikdo nezískal body.'});
-  const late=!!(qd.aimage&&qd.image&&!qd.fill);
+  const late=false;
   if(late&&res.classList) res.classList.add('late');
   return h('div',{class:'qwrap reveal'},
     qHead(theme,c.price,c.type),
