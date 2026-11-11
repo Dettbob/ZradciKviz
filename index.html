@@ -405,8 +405,9 @@ body[data-view=game]{padding-left:max(16px,env(safe-area-inset-left,0px)); paddi
 .qsub{margin:0; text-align:center; font:500 clamp(14px,2.7vh,30px)/1.25 var(--font-body); color:var(--muted); white-space:pre-wrap; text-shadow:0 2px 6px #000}
 .fillw{position:relative; flex:none; box-shadow:0 0 0 2px var(--gold-lo)}
 .fimg{position:absolute; inset:0; width:100%; height:100%; display:block; object-fit:fill}
-.fper{position:absolute; z-index:3; object-fit:cover; transform:var(--from); transform-origin:center; box-shadow:0 0 50px #000d,0 0 0 3px var(--gold-hi); transition:transform 1.2s cubic-bezier(.65,0,.25,1), box-shadow 1.2s ease; animation:fperIn .55s ease-out}
-.fper.go{transform:none; box-shadow:0 0 0 0 transparent}
+.fper{position:absolute; z-index:3; object-fit:cover; opacity:0; transform:none; transform-origin:center; box-shadow:0 0 0 0 transparent; transition:transform 1.8s cubic-bezier(.45,0,.2,1), opacity 1.4s ease, box-shadow 1.8s ease}
+.fper.big{opacity:1; transform:var(--from); box-shadow:0 0 50px #000d,0 0 0 3px var(--gold-hi)}
+.fper.in{opacity:1; transform:none; box-shadow:0 0 0 0 transparent}
 .fper.done{animation:fperPop .7s ease-out}
 @keyframes fperIn{from{opacity:0}to{opacity:1}}
 @keyframes fperPop{0%{filter:brightness(1)}35%{filter:brightness(1.5) drop-shadow(0 0 14px #ffd27a)}100%{filter:brightness(1)}}
@@ -526,8 +527,9 @@ const $=(s,r)=>(r||document).querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
 const clone=o=>JSON.parse(JSON.stringify(o));
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
-const APP_VERSION='2.12';
+const APP_VERSION='2.13';
 const CHANGELOG=[
+ ['2.13','„Co tu chybí?“: fotka chybějícího se v odpovědi plynule prolne a zvětší, chvíli zůstane velká a pak se plynule zmenší zpět na své místo v koláži.'],
  ['2.12','Klávesa F přepíná celou obrazovku.','Při pořadí „Postupně“ odpovídá nejdřív hráč/tým, který otázku vybral; když neodpoví, nestihne to (vyprší čas) nebo odpoví špatně, dostanou šanci ostatní.'],
  ['2.11','Hra v týmech: v nastavení lze zvolit „Týmy“ (název, postava a volitelně členové týmu); body jsou společné a u týmu se ukazuje, kdo je právě na řadě.','Nové nastavení pořadí: „Vítěz vybírá“ (dosavadní) nebo „Postupně“ – hráč po hráči / tým po týmu, vždy další po skončení otázky.'],
  ['2.10','Otázky mají podtext (menší písmo pod otázkou) a obrázek odpovědi. U „Co tu chybí?“ se po odhalení chybějící hráč ukáže velký a po 3 s doletí na své místo v koláži.','Téma „Na sluch“ přejmenováno na „Slyšíš to?“, opravy textů; u „Kdo to řekl?“ je jméno na zvláštním řádku.'],
@@ -744,7 +746,7 @@ function fillBox(qd){
   };
   requestAnimationFrame(()=>{ size(); requestAnimationFrame(size); });
   const onR=()=>{ if(!wrap.isConnected){ window.removeEventListener('resize',onR); return; } size(); }; window.addEventListener('resize',onR);
-  setTimeout(()=>{ per.classList.add('go'); setTimeout(()=>per.classList.add('done'),1300); },3000);
+  setTimeout(()=>{ per.classList.add('big'); setTimeout(()=>{ per.classList.remove('big'); per.classList.add('in'); setTimeout(()=>per.classList.add('done'),1900); },3800); },400);
   return wrap;
 }
 function audioField(get,set){
