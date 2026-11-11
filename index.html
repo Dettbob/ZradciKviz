@@ -409,9 +409,17 @@ body[data-view=game]{padding-left:max(16px,env(safe-area-inset-left,0px)); paddi
 .fper.big{opacity:1; transform:var(--from); box-shadow:0 0 50px #000d,0 0 0 3px var(--gold-hi)}
 .fper.in{opacity:1; transform:none; box-shadow:0 0 0 0 transparent}
 .blendw{z-index:3; transform-origin:center; transition:transform 1.8s cubic-bezier(.45,0,.2,1), box-shadow 1.8s ease}
-.blendw .bimg{opacity:0; transition:opacity 1.6s ease}
-.blendw.big{transform:scale(1.45); box-shadow:0 0 60px #000e,0 0 0 3px var(--gold-hi)}
-.blendw.big .bimg,.blendw.in .bimg{opacity:1}
+.blendw .bimg{opacity:0}
+.bigbd{position:fixed; inset:0; z-index:65; background:#000b; opacity:0; transition:opacity .8s ease; pointer-events:none}
+.bigbd.on{opacity:1}
+.bigov{position:fixed; z-index:70; box-shadow:0 0 60px #000e,0 0 0 2px var(--gold-hi); transition:left 1.8s cubic-bezier(.45,0,.2,1),top 1.8s cubic-bezier(.45,0,.2,1),width 1.8s cubic-bezier(.45,0,.2,1),height 1.8s cubic-bezier(.45,0,.2,1); pointer-events:none}
+.bigov img{position:absolute; inset:0; width:100%; height:100%; object-fit:fill; display:block}
+.bigov .nb{opacity:0; transition:opacity 2s ease}
+.bigov .nb.on{opacity:1}
+.late{opacity:0; transition:opacity .9s ease}
+.late.show{opacity:1}
+.ansov{position:fixed; left:50%; bottom:4vh; transform:translateX(-50%); z-index:75; min-width:min(70vw,520px); max-width:90vw; text-align:center; background:#0b0d0ddd; border:2px solid var(--gold-lo); border-radius:6px; padding:1vh 2vw; opacity:0; transition:opacity .8s ease; pointer-events:none}
+.ansov.on{opacity:1}
 .fper.done{animation:fperPop .7s ease-out}
 @keyframes fperIn{from{opacity:0}to{opacity:1}}
 @keyframes fperPop{0%{filter:brightness(1)}35%{filter:brightness(1.5) drop-shadow(0 0 14px #ffd27a)}100%{filter:brightness(1)}}
@@ -531,8 +539,9 @@ const $=(s,r)=>(r||document).querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
 const clone=o=>JSON.parse(JSON.stringify(o));
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
-const APP_VERSION='2.13.1';
+const APP_VERSION='2.13.2';
 const CHANGELOG=[
+ ['2.13.2','„Co tu chybí?“ s obrázky: nejdřív se původní obrázek zvětší do středu obrazovky, pak naskočí text správné odpovědi a obrázek se prolne s novým; až potom se zmenší zpět na místo.'],
  ['2.13.1','Animace odpovědi i u otázek „Co tu chybí?“ s obrázky (hrad s měsícem, Vojta se slzou): obrázek se plynule zvětší, prolne s obrázkem správné odpovědi a pak se zmenší zpět.'],
  ['2.13','„Co tu chybí?“: fotka chybějícího se v odpovědi plynule prolne a zvětší, chvíli zůstane velká a pak se plynule zmenší zpět na své místo v koláži.'],
  ['2.12','Klávesa F přepíná celou obrazovku.','Při pořadí „Postupně“ odpovídá nejdřív hráč/tým, který otázku vybral; když neodpoví, nestihne to (vyprší čas) nebo odpoví špatně, dostanou šanci ostatní.'],
@@ -771,7 +780,32 @@ function blendBox(qd){
   base.addEventListener('load',()=>{ if(base.naturalWidth) ratio=base.naturalWidth/base.naturalHeight; size(); });
   requestAnimationFrame(()=>{ size(); requestAnimationFrame(size); });
   const onR=()=>{ if(!wrap.isConnected){ window.removeEventListener('resize',onR); return; } size(); }; window.addEventListener('resize',onR);
-  setTimeout(()=>{ wrap.classList.add('big'); setTimeout(()=>{ wrap.classList.remove('big'); wrap.classList.add('in'); },3800); },400);
+  const alive=()=>wrap.isConnected&&G&&G.phase==='reveal';
+  let ov=null,bd=null,tx=null;
+  const clean=()=>{ [ov,bd,tx].forEach(e=>e&&e.remove()); ov=bd=tx=null; };
+  const T=(fn,ms)=>setTimeout(()=>{ if(alive()) fn(); else clean(); },ms);
+  T(()=>{ /* 1) původní obrázek (kopie nad vším) se zvětší do středu obrazovky */
+    const r=wrap.getBoundingClientRect(), vw=innerWidth, vh=innerHeight;
+    const w=Math.min(vw*.86,vh*.6*ratio), hh=w/ratio;
+    bd=document.createElement('div'); bd.className='bigbd'; document.body.append(bd);
+    ov=document.createElement('div'); ov.className='bigov';
+    const a=h('img',{src:qd.image,alt:''}), b=h('img',{src:qd.aimage,alt:'',class:'nb'}); ov.append(a,b);
+    ov.style.cssText='left:'+r.left+'px;top:'+r.top+'px;width:'+r.width+'px;height:'+r.height+'px';
+    document.body.append(ov); wrap.style.visibility='hidden';
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{ bd.classList.add('on'); ov.style.left=(vw-w)/2+'px'; ov.style.top=(vh*.4-hh/2)+'px'; ov.style.width=w+'px'; ov.style.height=hh+'px'; }));
+    T(()=>{ /* 2) pod obrázkem naskočí text správné odpovědi a obrázek se prolne s novým */
+      const src=document.querySelector('.qwrap .ans');
+      if(src){ tx=document.createElement('div'); tx.className='ansov'; {const cl=src.cloneNode(true); cl.classList.remove('late'); tx.append(cl);} document.body.append(tx); requestAnimationFrame(()=>tx&&tx.classList.add('on')); }
+      b.classList.add('on');
+      T(()=>{ /* 3) zmenšení zpět na místo */
+        if(tx) tx.classList.remove('on');
+        bd.classList.remove('on');
+        const r2=wrap.getBoundingClientRect();
+        ov.style.left=r2.left+'px'; ov.style.top=r2.top+'px'; ov.style.width=r2.width+'px'; ov.style.height=r2.height+'px';
+        T(()=>{ const bi=wrap.querySelector('.bimg'); if(bi){ bi.style.transition='none'; bi.style.opacity=1; } wrap.style.visibility=''; clean(); document.querySelectorAll('.qwrap .late').forEach(e=>e.classList.add('show')); },2000);
+      },4600);
+    },2200);
+  },400);
   return wrap;
 }
 function audioField(get,set){
@@ -2149,11 +2183,13 @@ function revealView(){
   if(G.cur&&G.cur.type==='shield') return shieldRevealView();
   const c=G.cur, qd=qdOf(c), theme=curRound().themes[c.t].name;
   const res=c.result==='correct'?h('div',{class:'result ok'},h('b',{text:pname(c.winner)}),' získává ',h('b',{text:'+'+fmt(c.price)})):h('div',{class:'result',text:'Nikdo nezískal body.'});
+  const late=!!(qd.aimage&&qd.image&&!qd.fill);
+  if(late&&res.classList) res.classList.add('late');
   return h('div',{class:'qwrap reveal'},
     qHead(theme,c.price,c.type),
     h('div',{class:'qbody'},revealPic(qd),audioBox(qd),
       h('p',{class:'qtext',text:qd.text||''}),qd.sub&&h('p',{class:'qsub',text:qd.sub}),
-      h('div',{class:'ans'},h('small',{text:'Správná odpověď'}),h('div',{class:'ans-text',text:(qd.answer||'—').split('\n')[0]}),(qd.answer||'').indexOf('\n')>=0&&h('div',{class:'ans-sub',text:qd.answer.slice(qd.answer.indexOf('\n')+1)}),qd.comment&&h('div',{class:'ans-note',text:qd.comment})),
+      h('div',{class:'ans'+(late?' late':'')},h('small',{text:'Správná odpověď'}),h('div',{class:'ans-text',text:(qd.answer||'—').split('\n')[0]}),(qd.answer||'').indexOf('\n')>=0&&h('div',{class:'ans-sub',text:qd.answer.slice(qd.answer.indexOf('\n')+1)}),qd.comment&&h('div',{class:'ans-note',text:qd.comment})),
       res),
     h('div',{class:'controls'},h('button',{class:'btn primary big',onclick:continueAfterReveal,title:'Klávesa Enter'},'Pokračovat')));
 }
