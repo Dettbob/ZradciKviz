@@ -526,8 +526,9 @@ const $=(s,r)=>(r||document).querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
 const clone=o=>JSON.parse(JSON.stringify(o));
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
-const APP_VERSION='2.11';
+const APP_VERSION='2.12';
 const CHANGELOG=[
+ ['2.12','Klávesa F přepíná celou obrazovku.','Při pořadí „Postupně“ odpovídá nejdřív hráč/tým, který otázku vybral; když neodpoví, nestihne to (vyprší čas) nebo odpoví špatně, dostanou šanci ostatní.'],
  ['2.11','Hra v týmech: v nastavení lze zvolit „Týmy“ (název, postava a volitelně členové týmu); body jsou společné a u týmu se ukazuje, kdo je právě na řadě.','Nové nastavení pořadí: „Vítěz vybírá“ (dosavadní) nebo „Postupně“ – hráč po hráči / tým po týmu, vždy další po skončení otázky.'],
  ['2.10','Otázky mají podtext (menší písmo pod otázkou) a obrázek odpovědi. U „Co tu chybí?“ se po odhalení chybějící hráč ukáže velký a po 3 s doletí na své místo v koláži.','Téma „Na sluch“ přejmenováno na „Slyšíš to?“, opravy textů; u „Kdo to řekl?“ je jméno na zvláštním řádku.'],
  ['2.9.1','Testovací pack, téma „Co tu chybí?“: čas na otázku zdvojnásoben (60 s) a otázka za 30 000 používá všech 23 fotek 1. řady (chybí Věra).'],
@@ -1784,6 +1785,7 @@ function pickCell(t,q){
     else if(qd.type==='auction'){ G.phase='auction'; }
     else{
       if(qd.type==='safe'){ G.cur.answerer=G.chooser; G.cur.locked=true; }
+      else if(G.order==='rotate'&&G.players.length>1){ G.cur.answerer=G.chooser; }
       G.phase='question'; startTimer(qTime(G.cur));
     }
   });
@@ -1933,7 +1935,11 @@ setInterval(()=>{
   if(QA.state!=='idle') return; /* time stands still while the audio clip counts down / plays */
   const t=G.timer; if(!t.running) return;
   t.left=Math.max(0,t.left-dt);
-  if(t.left<=0){t.running=false; t.expired=true; sfx('timeout');}
+  if(t.left<=0){t.running=false; t.expired=true; sfx('timeout');
+    const c=G.cur; if(G.phase==='question'&&G.order==='rotate'&&c&&!c.locked&&c.answerer!=null&&c.answerer===c.picker&&!c.failed.length){
+      setTimeout(()=>{ if(G&&G.cur===c&&G.phase==='question'&&c.answerer===c.picker&&!c.failed.length&&!G.paused) commit(()=>{c.failed.push(c.answerer); c.answerer=null; startTimer(qTime(c));}); },1200);
+    }
+  }
   updateTimerUI();
 },100);
 function updateTimerUI(){
@@ -2303,6 +2309,7 @@ function openGameMenu(){
 
 /* ---------- global keys ---------- */
 document.addEventListener('keydown',e=>{
+  if((e.key==='f'||e.key==='F')&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&$('#modal').hidden&&!/^(input|textarea|select)$/i.test((e.target&&e.target.tagName)||'')){ try{const p=document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen(); if(p&&p.catch) p.catch(()=>toast('Celá obrazovka tu není dostupná'));}catch(err){} return; }
   if(e.key==='Escape'&&!$('#modal').hidden){closeModal();return;}
   if(app.view!=='game'||!G||!$('#modal').hidden) return;
   const tag=(e.target&&e.target.tagName||'').toLowerCase();
