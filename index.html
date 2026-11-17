@@ -420,6 +420,16 @@ body[data-view=game]{padding-left:max(16px,env(safe-area-inset-left,0px)); paddi
 .late.show{opacity:1}
 .ansov{position:fixed; left:50%; bottom:4vh; transform:translateX(-50%); z-index:75; min-width:min(70vw,520px); max-width:90vw; text-align:center; background:#0b0d0ddd; border:2px solid var(--gold-lo); border-radius:6px; padding:1vh 2vw; opacity:0; transition:opacity .8s ease; pointer-events:none}
 .ansov.on{opacity:1}
+.imghint{font-size:.8em; opacity:.6; letter-spacing:.06em; animation:ihp 2.2s ease-in-out infinite}
+@keyframes ihp{50%{opacity:.25}}
+.qbody.imgwait{cursor:pointer}
+.zbd{position:fixed; inset:0; z-index:90; background:#000d; opacity:0; transition:opacity .8s ease}
+.zbd.on{opacity:1}
+.zov{position:fixed; z-index:95; cursor:pointer; box-shadow:0 0 60px #000; transition:left .9s cubic-bezier(.45,0,.2,1),top .9s cubic-bezier(.45,0,.2,1),width .9s cubic-bezier(.45,0,.2,1),height .9s cubic-bezier(.45,0,.2,1),opacity .6s ease}
+.zov img{position:absolute; display:block; object-fit:fill}
+.zov .zb{left:0; top:0; width:100%; height:100%}
+.zov .zo{opacity:0; transition:opacity 1.6s ease}
+.zov .zo.on{opacity:1}
 .fper.done{animation:fperPop .7s ease-out}
 @keyframes fperIn{from{opacity:0}to{opacity:1}}
 @keyframes fperPop{0%{filter:brightness(1)}35%{filter:brightness(1.5) drop-shadow(0 0 14px #ffd27a)}100%{filter:brightness(1)}}
@@ -539,8 +549,9 @@ const $=(s,r)=>(r||document).querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
 const clone=o=>JSON.parse(JSON.stringify(o));
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
-const APP_VERSION='2.13.3';
+const APP_VERSION='2.14';
 const CHANGELOG=[
+ ['2.14','Otázky s obrázkem: nejdřív se ukáže jen text otázky, po kliknutí se objeví obrázek a spustí se čas.','Klávesa E zvětší obrázek na celou obrazovku a znovu ho zmenší (s plynulou animací; Esc také zavře).','Správná odpověď: obrázek se sám zvětší, kliknutím se plynule prolne do správného obrázku (u koláží se do volného místa doplní fotka) a dalším kliknutím se zmenší zpět.'],
  ['2.13.3','Otázky „Co tu chybí?“ s obrázky (hrad s měsícem, Vojta se slzou) mají zase bez animací: po odhalení se rovnou ukáže obrázek správné odpovědi.'],
  ['2.13.2','„Co tu chybí?“ s obrázky: nejdřív se původní obrázek zvětší do středu obrazovky, pak naskočí text správné odpovědi a obrázek se prolne s novým; až potom se zmenší zpět na místo.'],
  ['2.13.1','Animace odpovědi i u otázek „Co tu chybí?“ s obrázky (hrad s měsícem, Vojta se slzou): obrázek se plynule zvětší, prolne s obrázkem správné odpovědi a pak se zmenší zpět.'],
@@ -739,19 +750,34 @@ function readImage(file){
 }
 
 
-/* answer picture: either a replacement image, or a photo that appears big and then flies into the empty slot of the collage */
-function revealPic(qd){
-  if(qd.aimage&&qd.image&&qd.fill) return fillBox(qd);
-  const src=qd.aimage||qd.image; return src&&h('img',{class:'qimg',src:src,alt:''});
+/* ---------- obrázky u otázek: skrytí do kliknutí, zvětšení (E), odhalení správného obrázku ---------- */
+const imgHint='Klikni na otázku – zobrazí se obrázek a spustí se čas';
+function qPicEl(c,qd){
+  if(!qd.image) return null;
+  return c.imgShown?h('img',{class:'qimg zsrc',src:qd.image,alt:'',title:'Klávesa E = zvětšit / zmenšit'}):null;
 }
-function fillBox(qd){
-  if(!qd.fill) return blendBox(qd);
+function qHintEl(c,qd){ return (qd.image&&!c.imgShown)?h('div',{class:'imghint',text:imgHint}):null; }
+function qBodyClick(e){ if(e.target.closest&&e.target.closest('button')) return; showQImg(); }
+function showQImg(){
+  if(!G||!G.cur||G.paused||(G.phase!=='question'&&G.phase!=='allq')) return;
+  const qd=qdOf(G.cur); if(!qd.image||G.cur.imgShown) return;
+  commit(()=>{ G.cur.imgShown=true; startTimer(qTime(G.cur)); });
+}
+function beginQTimer(c){
+  const qd=qdOf(c);
+  if(qd.image&&!c.imgShown){ const s=qTime(c); G.timer={left:s,total:s,running:false,expired:false}; }
+  else startTimer(qTime(c));
+}
+function revealPic(qd){
+  if(qd.aimage&&qd.image&&qd.fill) return compBox(qd);
+  const src=qd.aimage||qd.image; return src&&h('img',{class:'qimg zsrc',src:src,alt:'',title:'Klávesa E = zvětšit / zmenšit'});
+}
+/* koláž s doplněnou fotkou na svém místě (statická) */
+function compBox(qd){
   const f=qd.fill, ratio=f.w/f.h, col=f.slot%f.cols, row=Math.floor(f.slot/f.cols);
   const base=h('img',{class:'fimg',src:qd.image,alt:''});
-  const per=h('img',{class:'fper',src:qd.aimage,alt:'',style:'left:'+(col/f.cols*100)+'%;top:'+(row/f.rows*100)+'%;width:'+(100/f.cols)+'%;height:'+(100/f.rows)+'%;'});
-  const dx=(f.cols/2-col-.5)*100, dy=(f.rows/2-row-.5)*100;
-  per.style.setProperty('--from','translate('+dx+'%,'+dy+'%) scale('+(f.rows*.95)+')');
-  const wrap=h('div',{class:'fillw'},base,per);
+  const per=h('img',{class:'fper in',src:qd.aimage,alt:'',style:'left:'+(col/f.cols*100)+'%;top:'+(row/f.rows*100)+'%;width:'+(100/f.cols)+'%;height:'+(100/f.rows)+'%;'});
+  const wrap=h('div',{class:'fillw zsrc',title:'Klávesa E = zvětšit / zmenšit'},base,per);
   const size=()=>{
     const body=wrap.parentElement; if(!body||!body.isConnected) return;
     const cs=getComputedStyle(body), gap=parseFloat(cs.rowGap)||0;
@@ -762,52 +788,74 @@ function fillBox(qd){
   };
   requestAnimationFrame(()=>{ size(); requestAnimationFrame(size); });
   const onR=()=>{ if(!wrap.isConnected){ window.removeEventListener('resize',onR); return; } size(); }; window.addEventListener('resize',onR);
-  setTimeout(()=>{ per.classList.add('big'); setTimeout(()=>{ per.classList.remove('big'); per.classList.add('in'); setTimeout(()=>per.classList.add('done'),1900); },3800); },400);
   return wrap;
 }
-function blendBox(qd){
-  let ratio=16/9;
-  const base=h('img',{class:'fimg',src:qd.image,alt:''});
-  const per=h('img',{class:'fimg bimg',src:qd.aimage,alt:''});
-  const wrap=h('div',{class:'fillw blendw'},base,per);
-  const size=()=>{
-    const body=wrap.parentElement; if(!body||!body.isConnected) return;
-    const cs=getComputedStyle(body), gap=parseFloat(cs.rowGap)||0;
-    const kids=[...body.children]; let used=0; kids.forEach(k=>{ if(k!==wrap) used+=k.offsetHeight; });
-    const avail=body.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom)-used-gap*(kids.length-1);
-    const maxW=body.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight);
-    const w=Math.max(120,Math.min(maxW,Math.max(60,avail)*ratio)); wrap.style.width=w+'px'; wrap.style.height=(w/ratio)+'px';
-  };
-  base.addEventListener('load',()=>{ if(base.naturalWidth) ratio=base.naturalWidth/base.naturalHeight; size(); });
-  requestAnimationFrame(()=>{ size(); requestAnimationFrame(size); });
-  const onR=()=>{ if(!wrap.isConnected){ window.removeEventListener('resize',onR); return; } size(); }; window.addEventListener('resize',onR);
-  const alive=()=>wrap.isConnected&&G&&G.phase==='reveal';
-  let ov=null,bd=null,tx=null;
-  const clean=()=>{ [ov,bd,tx].forEach(e=>e&&e.remove()); ov=bd=tx=null; };
-  const T=(fn,ms)=>setTimeout(()=>{ if(alive()) fn(); else clean(); },ms);
-  T(()=>{ /* 1) původní obrázek (kopie nad vším) se zvětší do středu obrazovky */
-    const r=wrap.getBoundingClientRect(), vw=innerWidth, vh=innerHeight;
-    const w=Math.min(vw*.86,vh*.6*ratio), hh=w/ratio;
-    bd=document.createElement('div'); bd.className='bigbd'; document.body.append(bd);
-    ov=document.createElement('div'); ov.className='bigov';
-    const a=h('img',{src:qd.image,alt:''}), b=h('img',{src:qd.aimage,alt:'',class:'nb'}); ov.append(a,b);
-    ov.style.cssText='left:'+r.left+'px;top:'+r.top+'px;width:'+r.width+'px;height:'+r.height+'px';
-    document.body.append(ov); wrap.style.visibility='hidden';
-    requestAnimationFrame(()=>requestAnimationFrame(()=>{ bd.classList.add('on'); ov.style.left=(vw-w)/2+'px'; ov.style.top=(vh*.4-hh/2)+'px'; ov.style.width=w+'px'; ov.style.height=hh+'px'; }));
-    T(()=>{ /* 2) pod obrázkem naskočí text správné odpovědi a obrázek se prolne s novým */
-      const src=document.querySelector('.qwrap .ans');
-      if(src){ tx=document.createElement('div'); tx.className='ansov'; {const cl=src.cloneNode(true); cl.classList.remove('late'); tx.append(cl);} document.body.append(tx); requestAnimationFrame(()=>tx&&tx.classList.add('on')); }
-      b.classList.add('on');
-      T(()=>{ /* 3) zmenšení zpět na místo */
-        if(tx) tx.classList.remove('on');
-        bd.classList.remove('on');
-        const r2=wrap.getBoundingClientRect();
-        ov.style.left=r2.left+'px'; ov.style.top=r2.top+'px'; ov.style.width=r2.width+'px'; ov.style.height=r2.height+'px';
-        T(()=>{ const bi=wrap.querySelector('.bimg'); if(bi){ bi.style.transition='none'; bi.style.opacity=1; } wrap.style.visibility=''; clean(); document.querySelectorAll('.qwrap .late').forEach(e=>e.classList.add('show')); },2000);
-      },4600);
-    },2200);
-  },400);
-  return wrap;
+/* zvětšení obrázku přes celou obrazovku */
+const Z={ov:null,bd:null,src:null,spec:null,open:false,crossed:false,ratio:1,busy:false,autoFor:null,timer:0};
+function zoomSpec(){
+  if(!G||!G.cur) return null; const qd=qdOf(G.cur);
+  if(G.phase==='reveal'){
+    if(qd.image&&qd.aimage) return {base:qd.image,over:{url:qd.aimage,fill:qd.fill||null}};
+    const u=qd.aimage||qd.image; return u?{base:u,over:null}:null;
+  }
+  return qd.image?{base:qd.image,over:null}:null;
+}
+function fitRect(r,ratio){
+  let w=r.width,hh=w/ratio; if(hh>r.height){ hh=r.height; w=hh*ratio; }
+  return {left:r.left+(r.width-w)/2,top:r.top+(r.height-hh)/2,width:w,height:hh};
+}
+function zPlace(el,b){ el.style.left=b.left+'px'; el.style.top=b.top+'px'; el.style.width=b.width+'px'; el.style.height=b.height+'px'; }
+async function zoomOpen(){
+  if(Z.open||Z.busy||Z.ov) return;
+  const spec=zoomSpec(), src=document.querySelector('.zsrc'); if(!spec||!src) return;
+  Z.busy=true;
+  const im=new Image(); im.src=spec.base; try{ await im.decode(); }catch(e){}
+  Z.busy=false;
+  if(Z.open||Z.ov||!src.isConnected) return;
+  const r=src.getBoundingClientRect();
+  const ratio=(im.naturalWidth&&im.naturalHeight)?im.naturalWidth/im.naturalHeight:(r.width/Math.max(1,r.height));
+  const from=fitRect(r,ratio), vw=innerWidth, vh=innerHeight;
+  const w=Math.min(vw*.97,vh*.95*ratio), hh=w/ratio;
+  const bd=document.createElement('div'); bd.className='zbd'; bd.onclick=zoomClick;
+  const ov=document.createElement('div'); ov.className='zov'; ov.onclick=zoomClick;
+  const b=document.createElement('img'); b.className='zb'; b.src=spec.base; ov.append(b);
+  if(spec.over){
+    const o=document.createElement('img'); o.className='zo'; o.src=spec.over.url;
+    const f=spec.over.fill;
+    if(f){ const col=f.slot%f.cols,row=Math.floor(f.slot/f.cols); o.style.cssText='left:'+(col/f.cols*100)+'%;top:'+(row/f.rows*100)+'%;width:'+(100/f.cols)+'%;height:'+(100/f.rows)+'%;'; }
+    else o.style.cssText='left:0;top:0;width:100%;height:100%;';
+    ov.append(o);
+  }
+  zPlace(ov,from); document.body.append(bd,ov);
+  Object.assign(Z,{ov,bd,src,spec,open:true,crossed:false,ratio});
+  src.style.visibility='hidden';
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{ bd.classList.add('on'); zPlace(ov,{left:(vw-w)/2,top:(vh-hh)/2,width:w,height:hh}); }));
+}
+function zoomClick(){
+  if(!Z.open) return;
+  if(Z.spec&&Z.spec.over&&!Z.crossed){ Z.crossed=true; const o=Z.ov.querySelector('.zo'); if(o) o.classList.add('on'); }
+  else zoomClose();
+}
+function zoomClose(){
+  if(!Z.open||!Z.ov) return;
+  Z.open=false;
+  const src=(Z.src&&Z.src.isConnected)?Z.src:document.querySelector('.zsrc');
+  const ov=Z.ov, bd=Z.bd;
+  if(Z.spec&&Z.spec.over&&!Z.crossed){ const o=ov.querySelector('.zo'); if(o) o.classList.add('on'); }
+  bd.classList.remove('on');
+  if(src){ zPlace(ov,fitRect(src.getBoundingClientRect(),Z.ratio)); }
+  else { ov.style.opacity='0'; }
+  clearTimeout(Z.timer);
+  Z.timer=setTimeout(()=>{ const s=document.querySelector('.zsrc'); if(s) s.style.visibility=''; if(src) src.style.visibility=''; ov.remove(); bd.remove(); if(Z.ov===ov){ Z.ov=null; Z.bd=null; Z.src=null; } },1000);
+}
+function zoomToggle(){ if(Z.open) zoomClose(); else zoomOpen(); }
+function zoomSync(){ /* po překreslení: zvětšený obrázek zůstane, nebo se uklidí, když už pro něj není místo */
+  if(!Z.ov) return;
+  const s=document.querySelector('.zsrc');
+  if(Z.open&&s){ Z.src=s; s.style.visibility='hidden'; return; }
+  if(Z.open&&!s){ Z.open=false; }
+  if(!Z.open&&!Z.timer){ }
+  if(!s||!Z.open){ if(!s){ clearTimeout(Z.timer); if(Z.ov) Z.ov.remove(); if(Z.bd) Z.bd.remove(); Z.ov=Z.bd=Z.src=null; } }
 }
 function audioField(get,set){
   const wrap=h('div',{class:'imgf'});
@@ -1242,6 +1290,7 @@ function render(){
   else if(app.view==='setup') viewSetup(root);
   else if(app.view==='game') viewGame(root);
   if(app.view==='editor') root.scrollTop=keep; else root.scrollTop=0;
+  zoomSync();
 }
 
 /* ---------- menu ---------- */
@@ -1841,14 +1890,14 @@ function pickCell(t,q){
   commit(()=>{
     const qd=curRound().themes[t].questions[q];
     G.cur={picker:G.chooser,t:t,q:q,key:qKey(t,q),price:qd.price,type:qd.type,answerer:null,failed:[],locked:false,result:null,winner:null,target:null,bidder:null};
-    if(curRound().kind==='all'){ G.cur.price=curRound().price||qd.price; G.cur.type='all'; G.cur.marks={}; G.phase='allq'; startTimer(qTime(G.cur)); return; }
+    if(curRound().kind==='all'){ G.cur.price=curRound().price||qd.price; G.cur.type='all'; G.cur.marks={}; G.phase='allq'; beginQTimer(G.cur); return; }
     if(qd.type==='shield'){ G.cur.winner=G.chooser; G.cur.result='shield'; G.players[G.chooser].shield=true; G.used[G.cur.key]=true; G.phase='reveal'; }
     else if(qd.type==='cat'){ G.phase='cat'; }
     else if(qd.type==='auction'){ G.phase='auction'; }
     else{
       if(qd.type==='safe'){ G.cur.answerer=G.chooser; G.cur.locked=true; }
       else if(G.order==='rotate'&&G.players.length>1){ G.cur.answerer=G.chooser; }
-      G.phase='question'; startTimer(qTime(G.cur));
+      G.phase='question'; beginQTimer(G.cur);
     }
   });
 }
@@ -1859,7 +1908,7 @@ function pickAnswerer(i){
   if(G.phase!=='question'||G.paused||G.cur.locked||G.cur.failed.indexOf(i)>=0) return;
   commit(()=>{
     if(G.cur.answerer===i){ G.cur.answerer=null; }
-    else{ G.cur.answerer=i; startTimer(qTime(G.cur)); }
+    else{ G.cur.answerer=i; if(G.cur.imgShown||!qdOf(G.cur).image) startTimer(qTime(G.cur)); }
   });
 }
 function finishQ(){G.used[G.cur.key]=true; G.phase='reveal'; stopTimer();}
@@ -1901,7 +1950,7 @@ function allQView(){
   return h('div',{class:'qwrap'},
     qHead(theme,c.price,null),
     timerBar(),
-    h('div',{class:'qbody'},qd.image&&h('img',{class:'qimg',src:qd.image,alt:''}),audioBox(qd),h('p',{class:'qtext',text:qd.text||'(prázdná otázka)'}),qd.sub&&h('p',{class:'qsub',text:qd.sub})),
+    h('div',{class:'qbody'+((qd.image&&!c.imgShown)?' imgwait':''),onclick:qBodyClick},qPicEl(c,qd),audioBox(qd),h('p',{class:'qtext',text:qd.text||'(prázdná otázka)'}),qd.sub&&h('p',{class:'qsub',text:qd.sub}),qHintEl(c,qd)),
     h('div',{class:'controls'},
       h('div',{class:'status',text:'Odpovídají všichni – každý napíše odpověď na papír. '+(R.penalty?'Za špatnou odpověď se body odečítají.':'Za špatnou odpověď se nic neděje.')}),
       h('button',{class:'btn primary big',onclick:allToJudge},'Vyhodnotit odpovědi'),
@@ -1931,11 +1980,11 @@ function continueAfterReveal(){commit(()=>{
   G.cur=null; G.phase=roundDone()?'roundEnd':'board';});}
 function confirmCat(){
   if(G.cur.target==null) return;
-  commit(()=>{G.cur.answerer=G.cur.target; G.cur.locked=true; G.phase='question'; startTimer(qTime(G.cur));});
+  commit(()=>{G.cur.answerer=G.cur.target; G.cur.locked=true; G.phase='question'; beginQTimer(G.cur);});
 }
 function confirmAuction(){
   if(G.cur.bidder==null) return;
-  commit(()=>{G.cur.answerer=G.cur.bidder; G.cur.price=G.cur.bid; G.cur.locked=true; G.phase='question'; startTimer(qTime(G.cur));});
+  commit(()=>{G.cur.answerer=G.cur.bidder; G.cur.price=G.cur.bid; G.cur.locked=true; G.phase='question'; beginQTimer(G.cur);});
 }
 function togglePause(){
   if(!G||G.phase==='results') return;
@@ -2159,7 +2208,7 @@ function questionView(){
   return h('div',{class:'qwrap'},
     qHead(theme,c.price,c.type),
     timerBar(),
-    h('div',{class:'qbody'},qd.image&&h('img',{class:'qimg',src:qd.image,alt:''}),audioBox(qd),h('p',{class:'qtext',text:qd.text||'(prázdná otázka)'}),qd.sub&&h('p',{class:'qsub',text:qd.sub})),
+    h('div',{class:'qbody'+((qd.image&&!c.imgShown)?' imgwait':''),onclick:qBodyClick},qPicEl(c,qd),audioBox(qd),h('p',{class:'qtext',text:qd.text||'(prázdná otázka)'}),qd.sub&&h('p',{class:'qsub',text:qd.sub}),qHintEl(c,qd)),
     h('div',{class:'controls'},
       status,
       h('button',{class:'btn good',disabled:a==null,onclick:correct,title:'Klávesa +'},'✓ Správně +'+fmt(c.price)),
@@ -2185,6 +2234,7 @@ function revealView(){
   const c=G.cur, qd=qdOf(c), theme=curRound().themes[c.t].name;
   const res=c.result==='correct'?h('div',{class:'result ok'},h('b',{text:pname(c.winner)}),' získává ',h('b',{text:'+'+fmt(c.price)})):h('div',{class:'result',text:'Nikdo nezískal body.'});
   const late=false;
+  if(qd.aimage&&qd.image&&Z.autoFor!==c){ Z.autoFor=c; setTimeout(()=>{ if(G&&G.phase==='reveal'&&G.cur===c) zoomOpen(); },600); }
   if(late&&res.classList) res.classList.add('late');
   return h('div',{class:'qwrap reveal'},
     qHead(theme,c.price,c.type),
@@ -2374,6 +2424,8 @@ function openGameMenu(){
 /* ---------- global keys ---------- */
 document.addEventListener('keydown',e=>{
   if((e.key==='f'||e.key==='F')&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&$('#modal').hidden&&!/^(input|textarea|select)$/i.test((e.target&&e.target.tagName)||'')){ try{const p=document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen(); if(p&&p.catch) p.catch(()=>toast('Celá obrazovka tu není dostupná'));}catch(err){} return; }
+  if((e.key==='e'||e.key==='E')&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&$('#modal').hidden&&app.view==='game'&&!/^(input|textarea|select)$/i.test((e.target&&e.target.tagName)||'')){ e.preventDefault(); zoomToggle(); return; }
+  if(e.key==='Escape'&&Z.open){ zoomClose(); return; }
   if(e.key==='Escape'&&!$('#modal').hidden){closeModal();return;}
   if(app.view!=='game'||!G||!$('#modal').hidden) return;
   const tag=(e.target&&e.target.tagName||'').toLowerCase();
