@@ -561,8 +561,9 @@ const $=(s,r)=>(r||document).querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
 const clone=o=>JSON.parse(JSON.stringify(o));
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
-const APP_VERSION='2.16';
+const APP_VERSION='2.17';
 const CHANGELOG=[
+ ['2.17','Nejdražší otázka každého tématu je vždy společná a na desce není vidět; po zodpovězení ostatních otázek tématu se objeví „Nastal čas společné otázky!“ a rovnou se hraje.'],
  ['2.16','Společná otázka v tématu se odemkne až po zodpovězení ostatních otázek tématu.','Otázky s volbou „čas až po kliknutí“ (Mise 40 000) a obrázek, který se postupně zaostřuje (Oblečení – Vojta).','Po vypršení času lze správnou odpověď stále započítat libovolnému hráči/týmu.','Odstraněny animace a zoom při odhalení správné odpovědi.','Doplněna otázka Tenata, upraveny texty otázek.'],
  ['2.15','Nový „Základní balíček“ podle plánu otázek (1. kolo: 5 témat po 6 otázkách, 2. kolo: 4 témata po 5 otázkách); Testovací pack zůstává.','Nové typy otázek: Společná (všichni píšou, host hodnotí), Stopky (napočítejte nejblíž k času; čas se nikde neukazuje), Dražba štítu (nejvyšší nabídka platí, při 70 000 je štít zdarma).','Podpora videa u otázky i u odpovědi (spustí se po kliknutí na otázku).'],
  ['2.14','Otázky s obrázkem: nejdřív se ukáže jen text otázky, po kliknutí se objeví obrázek a spustí se čas.','Klávesa E zvětší obrázek na celou obrazovku a znovu ho zmenší (s plynulou animací; Esc také zavře).','Správná odpověď: obrázek se sám zvětší, kliknutím se plynule prolne do správného obrázku (u koláží se do volného místa doplní fotka) a dalším kliknutím se zmenší zpět.'],
@@ -1941,13 +1942,24 @@ const pname=i=>G.players[i].name;
 const memberOf=i=>{const p=G.players[i]; return (G.mode==='teams'&&p.members&&p.members.length)?p.members[(p.turn||0)%p.members.length]:'';};
 const memberTag=i=>{const m=memberOf(i); return m?' ('+m+')':'';};
 
+const commonIdx=(R,t)=>(R&&R.kind!=='all'&&t.questions.length>1)?t.questions.length-1:-1;
+function pendingCommon(){
+  const R=curRound(); if(!R||R.kind==='all') return null;
+  for(let ti=0;ti<R.themes.length;ti++){
+    const t=R.themes[ti], ci=commonIdx(R,t); if(ci<0||G.used[qKey(ti,ci)]) continue;
+    if(t.questions.every((o,oi)=>oi===ci||G.used[qKey(ti,oi)])) return {t:ti,q:ci};
+  }
+  return null;
+}
+const afterQPhase=()=>roundDone()?'roundEnd':(pendingCommon()?'cintro':'board');
 function pickCell(t,q){
   if(G.paused) return;
   { const _q=curRound().themes[t].questions[q]; sfx(_q&&_q.type==='shield'?'ok':'pick'); }
   commit(()=>{
     const qd=curRound().themes[t].questions[q];
     G.cur={picker:G.chooser,t:t,q:q,key:qKey(t,q),price:qd.price,type:qd.type,answerer:null,failed:[],locked:false,result:null,winner:null,target:null,bidder:null};
-    if(curRound().kind==='all'||qd.type==='all'){ G.cur.price=curRound().kind==='all'?(curRound().price||qd.price):qd.price; G.cur.type='all'; G.cur.marks={}; G.phase='allq'; beginQTimer(G.cur); return; }
+    const isCommon=q===commonIdx(curRound(),curRound().themes[t])&&['normal','cat','auction','safe','shield'].indexOf(qd.type)>=0;
+    if(curRound().kind==='all'||qd.type==='all'||isCommon){ G.cur.price=curRound().kind==='all'?(curRound().price||qd.price):qd.price; G.cur.type='all'; G.cur.marks={}; G.phase='allq'; beginQTimer(G.cur); return; }
     if(qd.type==='shield'){ G.cur.winner=G.chooser; G.cur.result='shield'; G.players[G.chooser].shield=true; G.used[G.cur.key]=true; G.phase='reveal'; }
     else if(qd.type==='cat'){ G.phase='cat'; }
     else if(qd.type==='stopwatch'){ G.cur.sw={start:null,stops:{}}; G.phase='stopw'; }
@@ -2006,7 +2018,7 @@ function allConfirm(){
       if(m===true) p.score+=c.price;
       else if(m===false&&allPen(R)){ if(p.shield){p.shield=false; sh.push(i);} else p.score-=c.price; }
     });
-    advTurn(c); G.used[c.key]=true; G.cur=null; G.phase=roundDone()?'roundEnd':'board'; stopTimer();
+    advTurn(c); G.used[c.key]=true; G.cur=null; G.phase=afterQPhase(); stopTimer();
   });
   sfx('ok'); if(sh.length) toast('Štít ochránil: '+sh.map(pname).join(', '));
 }
@@ -2042,7 +2054,7 @@ function allJView(){
 function cancelQ(){commit(()=>{G.cur=null; G.phase='board'; stopTimer();});}
 function continueAfterReveal(){commit(()=>{
   advTurn(G.cur);
-  G.cur=null; G.phase=roundDone()?'roundEnd':'board';});}
+  G.cur=null; G.phase=afterQPhase();});}
 function confirmCat(){
   if(G.cur.target==null) return;
   commit(()=>{G.cur.answerer=G.cur.target; G.cur.locked=true; G.phase='question'; beginQTimer(G.cur);});
@@ -2223,6 +2235,7 @@ function stageView(){
   else if(p==='stopw') st.append(swView());
   else if(p==='sauction') st.append(sauctionView());
   else if(p==='auction') st.append(auctionView());
+  else if(p==='cintro') st.append(cintroView());
   else if(p==='roundEnd') st.append(roundEndView());
   else if(p==='finalThemes') st.append(finalThemesView());
   else if(p==='finalBets') st.append(finalBetsView());
@@ -2250,7 +2263,7 @@ function boardView(){
     });
     wrap.append(g); return wrap;
   }
-  const cols=Math.max(1,...R.themes.map(t=>t.questions.length));
+  const cols=Math.max(1,...R.themes.map(t=>t.questions.length-(commonIdx(R,t)>=0?1:0)));
   const grid=h('div',{class:'board',style:'grid-template-columns:minmax(0,1.5fr) repeat('+cols+',minmax(0,1fr));grid-template-rows:repeat('+R.themes.length+',minmax(0,1fr));--tn:'+R.themes.length+';--cn:'+cols});
   R.themes.forEach((t,ti)=>{
     grid.append(h('div',{class:'th'},h('span',{text:t.name})));
@@ -2258,12 +2271,24 @@ function boardView(){
       const q=t.questions[qi];
       if(!q){grid.append(h('div',{class:'cell empty'}));continue;}
       const key=qKey(ti,qi), used=!!G.used[key];
-      const locked=!used&&q.type==='all'&&t.questions.some((o,oi)=>oi!==qi&&!G.used[qKey(ti,oi)]);
+      if(qi===commonIdx(R,t)){grid.append(h('div',{class:'cell empty'}));continue;}
+      const locked=false;
       grid.append(h('button',{class:'cell'+(used?' used':'')+(locked?' locked':''),'aria-label':t.name+' '+q.price,title:used?'Použito, klikni pro vrácení do hry':(locked?'Společná otázka se odemkne po zodpovězení ostatních otázek v tématu':''),onclick:()=>used?askReopen(key):(locked?toast('Společná otázka se odemkne, až budou zodpovězeny ostatní otázky v tématu.'):pickCell(ti,qi))},used?'':h('span',{class:'pr',text:fmt(q.price),style:'--n:'+fmt(q.price).length})));
     }
   });
   wrap.append(grid);
+  const pc=pendingCommon();
+  if(pc) wrap.append(h('div',{class:'center-col',style:'flex:none;padding:6px'},h('button',{class:'btn primary big',onclick:()=>pickCell(pc.t,pc.q)},'Společná otázka – '+R.themes[pc.t].name)));
   return wrap;
+}
+function cintroView(){
+  const pc=pendingCommon(), R=curRound();
+  if(!pc) return h('div',{class:'qwrap'});
+  setTimeout(()=>{ if(G&&G.phase==='cintro'&&!G.paused) pickCell(pc.t,pc.q); },2800);
+  return h('div',{class:'qwrap',onclick:()=>pickCell(pc.t,pc.q),style:'cursor:pointer'},h('div',{class:'center-col'},
+    h('div',{class:'qtheme',text:R.themes[pc.t].name}),
+    h('h2',{class:'qtext',style:'font-size:clamp(28px,6vh,64px)',text:'Nastal čas společné otázky!'}),
+    h('p',{class:'muted',text:'Hrají všichni · '+fmt(R.themes[pc.t].questions[pc.q].price)})));
 }
 function qHead(theme,price,type){
   return h('div',{class:'qhead'},h('span',{class:'qtheme',text:theme}),h('span',{class:'qprice',text:fmt(price)}),type&&type!=='normal'&&h('span',{class:'qtype',text:TYPES[type]}));
