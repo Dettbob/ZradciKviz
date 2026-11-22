@@ -502,6 +502,9 @@ body[data-view=game]{padding-left:max(16px,env(safe-area-inset-left,0px)); paddi
 .rank{list-style:none; margin:0; padding:0; width:min(560px,100%); display:flex; flex-direction:column; gap:8px}
 .rank li{display:flex; align-items:center; gap:12px; padding:8px 14px; background:#0a100d; border:1px solid var(--gold-lo); font-size:1.2rem}
 .rank li.first{border-color:var(--gold-hi); background:linear-gradient(180deg,#2a1118,#12080b)}
+.result.winner{animation:winPop 1.1s cubic-bezier(.2,1.4,.4,1) both, winGlow 2.2s ease-in-out 1.1s infinite; text-shadow:0 0 18px rgba(255,210,122,.6)}
+@keyframes winPop{0%{transform:scale(.2);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes winGlow{0%,100%{text-shadow:0 0 14px rgba(255,210,122,.45)}50%{text-shadow:0 0 34px rgba(255,210,122,1),0 0 60px rgba(255,150,60,.6)}}
 .rank.big{width:min(820px,94%); gap:clamp(6px,1.4vh,14px)}
 .rank.big li{padding:clamp(8px,1.8vh,18px) 22px; font-size:clamp(20px,4vh,40px); gap:20px}
 .rank.big li .sc{font-size:clamp(24px,4.6vh,46px)}
@@ -581,8 +584,9 @@ const $=(s,r)=>(r||document).querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
 const clone=o=>JSON.parse(JSON.stringify(o));
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
-const APP_VERSION='2.26';
+const APP_VERSION='2.27';
 const CHANGELOG=[
+ ['2.27','Oslava vítěze na výsledcích: konfety, ohňostroj se zvuky, fanfára a veselá hudba.'],
  ['2.26','Finále: sázku lze nastavit na 0 (nesázím), sázky jsou vždy po celých 1000 (zaokrouhlení).'],
  ['2.25','Průběžné výsledky po každém kole (velký žebříček bez lišty hráčů), větší výsledky na konci, mezerník startuje čas, Num 0 ukáže odpověď všem, finále v základním balíčku: sázka před otázkou „Který hráč ze 3. řady chybí?“.'],
  ['2.24','Štít jako bonus má vlastní slide před otázkou; posuvník hlasitosti u audio ukázky; společná otázka nemění hráče na tahu; téma Na sluch bez označení řady.'],
@@ -2300,6 +2304,7 @@ function stageView(){
   else if(p==='finalQ') st.append(finalQView());
   else if(p==='finalJudge') st.append(finalJudgeView());
   else if(p==='results') st.append(resultsView());
+  if(p==='results'){ if(!CEL.on) setTimeout(()=>{ if(G&&G.phase==='results') celStart(); },60); } else if(CEL.on||CEL.cv) celStop();
   if(G.paused&&p!=='results'){
     st.append(h('div',{class:'pause-ov'},h('h2',{text:'PAUZA'}),h('button',{class:'btn primary big',onclick:togglePause},'Pokračovat'),h('span',{class:'muted',text:'Mezerník pauzu také ukončí. Body můžeš upravit kliknutím na ✎ u hráče.'})));
   }
@@ -2573,12 +2578,110 @@ function rankList(){
   const top=order[0].p.score;
   return h('ol',{class:'rank big'},order.map((o,k)=>h('li',{class:k===0||o.p.score===top?'first':''},h('span',{class:'muted',text:(k+1)+'.'}),h('span',{class:'rn'},avatar(G.players[o.i].icon,o.i,'md'),' ',pname(o.i)),h('span',{class:'sc',style:o.p.score<0?'color:var(--bad)':'',text:fmt(o.p.score)}))));
 }
+
+/* ---------- oslava vítěze: konfety, ohňostroj, fanfára a veselá hudba ---------- */
+const CEL={on:false,raf:0,cv:null,parts:[],conf:[],nextFw:0,t0:0,musT:0,musN:0,musTimer:null};
+function celSnd(kind,x){
+  try{
+    const ctx=AU.ctx; if(!ctx||ctx.state!=='running'||app.settings.mute||app.settings.sfx<=0) return;
+    const t=ctx.currentTime+.01;
+    if(kind==='launch'){ const o=tone(300,t,'sine',.5,.05,.2); o.frequency.exponentialRampToValueAtTime(1500,t+.45); }
+    else if(kind==='boom'){
+      const s=ctx.createBufferSource(); s.buffer=AU.noise; const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.setValueAtTime(2400,t); lp.frequency.exponentialRampToValueAtTime(160,t+.7);
+      const g=ctx.createGain(); g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(.9,t+.01); g.gain.exponentialRampToValueAtTime(.0001,t+.9);
+      s.connect(lp); lp.connect(g); g.connect(AU.sfxBus); const sg=ctx.createGain(); sg.gain.value=.5; g.connect(sg); sg.connect(AU.revS); s.start(t,Math.random()*2,1);
+      const o=tone(90,t,'sine',.6,.5,.1); o.frequency.exponentialRampToValueAtTime(38,t+.5);
+      for(let k=0;k<7;k++){ const tt=t+.25+Math.random()*.9; const c=ctx.createBufferSource(); c.buffer=AU.noise; const hp=ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=3500+Math.random()*3000; const cg=ctx.createGain(); cg.gain.setValueAtTime(.0001,tt); cg.gain.exponentialRampToValueAtTime(.18,tt+.003); cg.gain.exponentialRampToValueAtTime(.0001,tt+.05); c.connect(hp); hp.connect(cg); cg.connect(AU.sfxBus); c.start(tt,Math.random()*2,.07); }
+    }
+    else if(kind==='fanfare'){
+      const n=[[523.25,0,.22],[523.25,.2,.22],[523.25,.4,.22],[659.25,.6,.5],[587.33,1.1,.2],[659.25,1.3,.2],[783.99,1.5,1.4]];
+      n.forEach(a=>{ [1,2].forEach((m,ix)=>{ const o=tone(a[0]*(ix?1.004:1),t+a[1],'sawtooth',a[2]+.5,ix?.05:.09,.5); }); tone(a[0]/2,t+a[1],'triangle',a[2]+.4,.12,.3); });
+      tone(130.8,t+1.5,'sine',1.6,.25,.4); tone(196,t+1.5,'sine',1.6,.14,.4);
+    }
+  }catch(e){}
+}
+/* veselá hudba: 8 taktů (C G Am F C G F G), tempo 126, smyčka */
+function celMusicBar(bar,t){
+  const ch=[[0,4,7],[7,11,14],[9,12,16],[5,9,12],[0,4,7],[7,11,14],[5,9,12],[7,11,14]][bar%8];
+  const root=[261.63,196,220,174.61,261.63,196,174.61,196][bar%8];
+  const f=n=>261.63*Math.pow(2,n/12), beat=60/126;
+  const mel=[[12,0],[14,.5],[16,1],[14,1.5],[12,2],[16,2.5],[19,3],[16,3.5]];
+  const base=[0,0,1,1,0,2,3,1][bar%8];
+  for(let b=0;b<4;b++){
+    tone(root/2,t+b*beat,'triangle',beat*.9,.18,.1);
+    ch.forEach((n,i)=>tone(f(n+(i===0?0:0)),t+(b+i*.25)*beat+ (b%2?.5*beat:0),'square',beat*.4,.022,.3));
+  }
+  mel.forEach((m,i)=>{ const n=ch[(i%3)]+12+(i%4===3?5:0); tone(f(n),t+m[1]*beat*(1),'triangle',beat*.75,.085,.45); });
+  if(bar%2===0){ tone(f(ch[0]+24),t,'sine',beat*2,.04,.6); }
+}
+function celMusicPlay(){
+  clearTimeout(CEL.musTimer);
+  const ctx=AU.ctx; if(!ctx||ctx.state!=='running'||app.settings.mute||app.settings.sfx<=0||!CEL.on) return;
+  const step=()=>{
+    if(!CEL.on||CEL.musN>=32) return;
+    const t=Math.max(ctx.currentTime+.05,CEL.musT); celMusicBar(CEL.musN,t); CEL.musN++; CEL.musT=t+4*60/126;
+    CEL.musTimer=setTimeout(step,Math.max(50,(CEL.musT-ctx.currentTime-.6)*1000));
+  };
+  CEL.musT=ctx.currentTime+2.8; CEL.musN=0; step();
+}
+function celStart(){
+  if(CEL.on) return; CEL.on=true; CEL.t0=performance.now(); CEL.parts=[]; CEL.conf=[]; CEL.nextFw=CEL.t0+600;
+  try{ audioStart(); if(AU.ctx&&AU.musicBus){ AU.musicBus.gain.setTargetAtTime(0.02,AU.ctx.currentTime,.3); } }catch(e){}
+  celSnd('fanfare'); celMusicPlay();
+  const cv=document.createElement('canvas'); cv.id='celeb'; cv.style.cssText='position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:40';
+  const cv2=document.createElement('canvas'); cv2.style.cssText=cv.style.cssText; document.body.append(cv,cv2); CEL.cv=cv; CEL.cv2=cv2;
+  const dpr=Math.min(2,window.devicePixelRatio||1), W=cv.width=Math.round(innerWidth*dpr), H=cv.height=Math.round(innerHeight*dpr);
+  cv2.width=W; cv2.height=H; const c2=cv2.getContext('2d'); const c=cv.getContext('2d'); const COL=['#ffd27a','#ff5a5a','#5ae6c8','#8ab4ff','#ff8ad8','#fff3b0','#9dff7a'];
+  const burstConf=(n,x,y,spread)=>{ for(let i=0;i<n;i++){ const a=-Math.PI/2+(Math.random()-.5)*spread, v=(6+Math.random()*12)*dpr; CEL.conf.push({x:x,y:y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,w:(5+Math.random()*7)*dpr,h:(3+Math.random()*5)*dpr,r:Math.random()*6,vr:(Math.random()-.5)*.4,c:COL[Math.floor(Math.random()*COL.length)],ph:Math.random()*6}); } };
+  burstConf(150,W*.12,H*1.02,1.2); burstConf(150,W*.88,H*1.02,1.2);
+  const fw=()=>{
+    const x=W*(.12+Math.random()*.76), ty=H*(.12+Math.random()*.38), col=COL[Math.floor(Math.random()*COL.length)];
+    CEL.parts.push({rocket:true,x:x,y:H,vx:(Math.random()-.5)*2*dpr,vy:-(H-ty)/38,ty:ty,col:col,life:0,trail:[]});
+    celSnd('launch');
+  };
+  let last=performance.now();
+  const loop=now=>{
+    if(!CEL.on||!G||G.phase!=='results'){ celStop(); return; }
+    const dt=Math.min(40,now-last)/16.67; last=now;
+    c.globalCompositeOperation='destination-out'; c.fillStyle='rgba(0,0,0,.22)'; c.fillRect(0,0,W,H); c.globalCompositeOperation='lighter';
+    if(now>CEL.nextFw){ const burst=Math.random()<.3?2:1; for(let i=0;i<burst;i++) fw(); CEL.nextFw=now+700+Math.random()*900; }
+    const next=[];
+    CEL.parts.forEach(p=>{
+      if(p.rocket){
+        p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy*=.985; c.fillStyle='#fff'; c.beginPath(); c.arc(p.x,p.y,2.2*dpr,0,7); c.fill();
+        if(p.y<=p.ty||p.vy>-2){ celSnd('boom'); const n=70+Math.floor(Math.random()*50), two=Math.random()<.4, col2=COL[Math.floor(Math.random()*COL.length)];
+          for(let i=0;i<n;i++){ const a=Math.random()*Math.PI*2, v=(1.5+Math.random()*(two&&i%2?3:5.5))*dpr; next.push({x:p.x,y:p.y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:0,max:55+Math.random()*35,col:two&&i%2?col2:p.col}); } }
+        else next.push(p);
+      } else {
+        p.vx*=.985; p.vy=p.vy*.985+.07*dpr*dt; p.x+=p.vx*dt; p.y+=p.vy*dt; p.life+=dt;
+        const a=Math.max(0,1-p.life/p.max); c.globalAlpha=a; c.fillStyle=p.col; c.beginPath(); c.arc(p.x,p.y,(1.6+a*1.4)*dpr,0,7); c.fill(); c.globalAlpha=1;
+        if(p.life<p.max) next.push(p);
+      }
+    });
+    CEL.parts=next;
+    c2.clearRect(0,0,W,H);
+    if(performance.now()-CEL.t0<9000&&Math.random()<.5) burstConf(2,Math.random()*W,-10*dpr,.2);
+    else if(Math.random()<.18) burstConf(1,Math.random()*W,-10*dpr,.2);
+    CEL.conf=CEL.conf.filter(q=>{
+      q.vx*=.99; q.vy=Math.min(q.vy+.35*dpr*dt,4.2*dpr); q.x+=q.vx*dt+Math.sin(q.ph+q.y*.01)*.8*dpr; q.y+=q.vy*dt; q.r+=q.vr*dt;
+      c2.save(); c2.translate(q.x,q.y); c2.rotate(q.r); c2.scale(1,Math.cos(q.r*2.3)); c2.fillStyle=q.c; c2.fillRect(-q.w/2,-q.h/2,q.w,q.h); c2.restore();
+      return q.y<H+30*dpr;
+    });
+    CEL.raf=requestAnimationFrame(loop);
+  };
+  CEL.raf=requestAnimationFrame(loop);
+}
+function celStop(){
+  if(!CEL.on&&!CEL.cv) return; CEL.on=false; cancelAnimationFrame(CEL.raf); clearTimeout(CEL.musTimer);
+  if(CEL.cv){ CEL.cv.remove(); CEL.cv2&&CEL.cv2.remove(); CEL.cv=null; } CEL.parts=[]; CEL.conf=[];
+  try{ applyVol(); }catch(e){}
+}
 function resultsView(){
   const order=G.players.map((p,i)=>({p:p,i:i})).sort((a,b)=>b.p.score-a.p.score);
   const top=order[0].p.score; const winners=order.filter(o=>o.p.score===top);
   return h('div',{class:'center-col'},
     h('h2',{text:'Výsledky'}),
-    h('p',{class:'result',style:'font-size:clamp(18px,3.4vh,34px)'},winners.length>1?'Remíza: ':'Vítěz: ',h('b',{style:'color:var(--gold)',text:winners.map(o=>pname(o.i)).join(', ')})),
+    h('p',{class:'result winner',style:'font-size:clamp(22px,4.6vh,46px)'},'🏆 ',winners.length>1?'Remíza: ':'Vítěz: ',h('b',{style:'color:var(--gold-hi)',text:winners.map(o=>pname(o.i)).join(', ')}),' 🏆'),
     rankList(),
     h('div',{class:'row',style:'justify-content:center'},
       h('button',{class:'btn',onclick:undo,disabled:!G.history.length},'↶ Vrátit poslední krok'),
