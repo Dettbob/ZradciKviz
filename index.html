@@ -574,8 +574,9 @@ const $=(s,r)=>(r||document).querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
 const clone=o=>JSON.parse(JSON.stringify(o));
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
-const APP_VERSION='2.20';
+const APP_VERSION='2.21';
 const CHANGELOG=[
+ ['2.21','Emblémy hráčů/týmů lze vybrat libovolně, mohou se opakovat.'],
  ['2.20','Oprava ukládání rozehrané hry: ukládá se jen stav (ne celý balíček s obrázky), takže se hra uloží po každé otázce a lze ji po pádu/obnovení stránky dokončit.'],
  ['2.19','Čas 0 = bez časovače; režim „číst otázku bez času, čas až po kliku“ (nastavení hry i menu); různobarevné emblémy; výraznější zvýraznění hráče, který vybírá; tlačítko „Nechce odpovídat“; slabší rozostření u Oblečení (zaostří 10 s před koncem); u společných otázek bez textu o psaní na papír; animace +/− bodů nad ikonou.'],
  ['2.18','Místo siluet mají týmy/hráči emblémy ve stylu vitráže (lebka, myš, masky, vlk, pavouk, had, kompas + 5 dalších); výběr emblému u každého týmu.','V týmech se už nezobrazuje, kdo je právě na tahu uvnitř týmu.'],
@@ -737,7 +738,6 @@ const allPacks=()=>[BASE,TEST].concat(app.userPacks);
   if(!Array.isArray(st.names)) st.names=[];
   if(!Array.isArray(st.icons)||st.icons.length<10) st.icons=ICONS.slice(0,10);
   st.icons=st.icons.map((ic,i)=>isIcon(ic)?'e'+Number(ic.slice(1)):'e'+(i%EMBLEMS.length));
-  { const seen=new Set(); st.icons=st.icons.map(ic=>{ if(seen.has(ic)){ const f=ICONS.find(x=>!seen.has(x)&&st.icons.indexOf(x)<0)||ic; seen.add(f); return f; } seen.add(ic); return ic; }); }
   st.count=clamp(Number(st.count)||4,2,10);
 })();
 function saveSettings(){S.set(LS_SET,JSON.stringify(app.settings));}
@@ -1864,7 +1864,7 @@ function pickIcon(i){
   const s=app.settings;
   const taken=new Set(s.icons.slice(0,s.count).filter((_,k)=>k!==i));
   openModal('Postava hráče '+(i+1),h('div',{class:'mbody'},h('div',{class:'ico-grid'},ICONS.map((ic,k)=>
-    h('button',{class:'ico'+(s.icons[i]===ic?' on':''),title:EMBLEMS[k][0],disabled:taken.has(ic),onclick:()=>{s.icons[i]=ic;saveSettings();closeModal();render();}},avatar(ic,k))))));
+    h('button',{class:'ico'+(s.icons[i]===ic?' on':''),title:EMBLEMS[k][0],onclick:()=>{s.icons[i]=ic;saveSettings();closeModal();render();}},avatar(ic,k))))));
 }
 function viewSetup(root){
   const s=app.settings; const packs=allPacks();
@@ -2585,7 +2585,7 @@ function openPlayerModal(i){
   const apply=v=>{if(!isFinite(v)) return; setScore(i,v); refresh();};
   scoreIn.addEventListener('change',()=>apply(Number(scoreIn.value)));
   const taken=new Set(G.players.map((q,k)=>k!==i?q.icon:null));
-  const iconGrid=h('div',{class:'ico-grid'},ICONS.map((ic,k)=>h('button',{class:'ico'+(p.icon===ic?' on':''),title:EMBLEMS[k][0],disabled:taken.has(ic),onclick:()=>{commit(()=>{G.players[i].icon=ic;}); openPlayerModal(i);}},avatar(ic,k))));
+  const iconGrid=h('div',{class:'ico-grid'},ICONS.map((ic,k)=>h('button',{class:'ico'+(p.icon===ic?' on':''),title:EMBLEMS[k][0],onclick:()=>{commit(()=>{G.players[i].icon=ic;}); openPlayerModal(i);}},avatar(ic,k))));
   openModal((G.mode==='teams'?'Tým ':'Hráč ')+(i+1)+': '+p.name,h('div',{class:'mbody'},
     h('label',{class:'f'},'Jméno',h('input',{class:'txt',value:p.name,maxlength:24,oninput:e=>{G.players[i].name=e.target.value||('Hráč '+(i+1));persist();renderGame();}})),
     h('div',{class:'sec',text:'Body'}),
