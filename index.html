@@ -574,8 +574,9 @@ const $=(s,r)=>(r||document).querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
 const clone=o=>JSON.parse(JSON.stringify(o));
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
-const APP_VERSION='2.19';
+const APP_VERSION='2.20';
 const CHANGELOG=[
+ ['2.20','Oprava ukládání rozehrané hry: ukládá se jen stav (ne celý balíček s obrázky), takže se hra uloží po každé otázce a lze ji po pádu/obnovení stránky dokončit.'],
  ['2.19','Čas 0 = bez časovače; režim „číst otázku bez času, čas až po kliku“ (nastavení hry i menu); různobarevné emblémy; výraznější zvýraznění hráče, který vybírá; tlačítko „Nechce odpovídat“; slabší rozostření u Oblečení (zaostří 10 s před koncem); u společných otázek bez textu o psaní na papír; animace +/− bodů nad ikonou.'],
  ['2.18','Místo siluet mají týmy/hráči emblémy ve stylu vitráže (lebka, myš, masky, vlk, pavouk, had, kompas + 5 dalších); výběr emblému u každého týmu.','V týmech se už nezobrazuje, kdo je právě na tahu uvnitř týmu.'],
  ['2.17','Nejdražší otázka každého tématu je vždy společná a na desce není vidět; po zodpovězení ostatních otázek tématu se objeví „Nastal čas společné otázky!“ a rovnou se hraje.'],
@@ -1365,7 +1366,8 @@ function render(){
 
 /* ---------- menu ---------- */
 function savedGameInfo(){
-  const d=readJSON(LS_GAME); if(!d||!d.G||!d.G.pack||!Array.isArray(d.G.players)) return null;
+  const d=readJSON(LS_GAME); if(!d||!d.G||!Array.isArray(d.G.players)) return null;
+  if(!d.G.pack){ const pk=allPacks().find(x=>x.id===d.G.packId); if(!pk) return null; d.G.pack=clone(pk); delete d.G.pack.builtin; }
   return d.G;
 }
 /* ---------- animated cover: main menu and game background ---------- */
@@ -1926,10 +1928,14 @@ function resumeGame(){
   G.paused=TIMED.indexOf(G.phase)>=0; intro=0;
   go('game');
 }
+let persistWarned=false;
 function persist(){
   if(!G) return;
-  const copy=Object.assign({},G,{history:[]});
-  S.set(LS_GAME,JSON.stringify({G:copy}));
+  /* ukládá se jen stav hry – balíček s obrázky a zvuky by přesáhl limit úložiště, ukládá se odkaz na něj */
+  const copy=Object.assign({},G,{history:G.history.slice(-40)});
+  const pk=G.pack; if(pk&&pk.id&&allPacks().some(x=>x.id===pk.id)){ copy.packId=pk.id; copy.pack=null; }
+  let ok=false; try{ ok=S.set(LS_GAME,JSON.stringify({G:copy})); }catch(e){ ok=false; }
+  if(!ok&&!persistWarned){ persistWarned=true; toast('⚠ Hru se nepodařilo uložit (úložiště prohlížeče je plné nebo zakázané)'); }
 }
 function snap(){return JSON.stringify({players:G.players,roundIdx:G.roundIdx,used:G.used,chooser:G.chooser,phase:G.phase,cur:G.cur,fin:G.fin,timer:{left:G.timer.left,total:G.timer.total}});}
 function commit(fn){
