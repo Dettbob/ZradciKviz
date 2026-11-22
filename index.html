@@ -578,8 +578,9 @@ const $=(s,r)=>(r||document).querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
 const clone=o=>JSON.parse(JSON.stringify(o));
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
-const APP_VERSION='2.23';
+const APP_VERSION='2.24';
 const CHANGELOG=[
+ ['2.24','Štít jako bonus má vlastní slide před otázkou; posuvník hlasitosti u audio ukázky; společná otázka nemění hráče na tahu; téma Na sluch bez označení řady.'],
  ['2.23','Štít jako bonus k otázce (hráč ho dostane hned po výběru otázky); násobek času místo pevných sekund; větší mezery mezi tvrzeními v Misi.'],
  ['2.22','Dražba štítu: při remíze dostanou štít všichni s nejvyšší nabídkou, při samých nulách nikdo; zvýraznění hráče se už neořezává; společná otázka v Co tu chybí se zaostřuje.'],
  ['2.21','Emblémy hráčů/týmů lze vybrat libovolně, mohou se opakovat.'],
