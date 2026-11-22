@@ -581,8 +581,9 @@ const $=(s,r)=>(r||document).querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
 const clone=o=>JSON.parse(JSON.stringify(o));
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
-const APP_VERSION='2.25';
+const APP_VERSION='2.26';
 const CHANGELOG=[
+ ['2.26','Finále: sázku lze nastavit na 0 (nesázím), sázky jsou vždy po celých 1000 (zaokrouhlení).'],
  ['2.25','Průběžné výsledky po každém kole (velký žebříček bez lišty hráčů), větší výsledky na konci, mezerník startuje čas, Num 0 ukáže odpověď všem, finále v základním balíčku: sázka před otázkou „Který hráč ze 3. řady chybí?“.'],
  ['2.24','Štít jako bonus má vlastní slide před otázkou; posuvník hlasitosti u audio ukázky; společná otázka nemění hráče na tahu; téma Na sluch bez označení řady.'],
  ['2.23','Štít jako bonus k otázce (hráč ho dostane hned po výběru otázky); násobek času místo pevných sekund; větší mezery mezi tvrzeními v Misi.'],
@@ -2142,7 +2143,7 @@ function startFinal(){
   commit(()=>{
     G.cur=null; stopTimer();
     G.fin={removed:ft.map(()=>false),order:el.slice().sort((a,b)=>G.players[a].score-G.players[b].score),turn:0,el:el,bets:{},judge:{},chosen:null};
-    if(ft.length===1){G.fin.chosen=0; el.forEach(i=>{G.fin.bets[i]=1;}); G.phase='finalBets';} else G.phase='finalThemes';
+    if(ft.length===1){G.fin.chosen=0; el.forEach(i=>{G.fin.bets[i]=0;}); G.phase='finalBets';} else G.phase='finalThemes';
   });
 }
 function finalRemove(i){
@@ -2152,18 +2153,16 @@ function finalRemove(i){
     f.removed[i]=true; f.turn++;
     if(f.removed.filter(x=>!x).length===1){
       f.chosen=f.removed.indexOf(false);
-      f.el.forEach(p=>{f.bets[p]=1;});
+      f.el.forEach(p=>{f.bets[p]=0;});
       G.phase='finalBets';
     }
   });
 }
+const betMax=i=>Math.max(0,Math.floor(G.players[i].score/1000)*1000);
+const betClamp=(v,i)=>Math.max(0,Math.min(betMax(i),Math.round((Number(v)||0)/1000)*1000));
 function finalToQuestion(){
   const f=G.fin;
-  for(const i of f.el){
-    const b=Number(f.bets[i]);
-    if(!(b>=1&&b<=G.players[i].score)){toast('Sázka hráče '+G.players[i].name+' musí být 1 až '+fmt(G.players[i].score)+'.');return;}
-  }
-  commit(()=>{G.phase='finalQ'; startTimer(G.timeFinal);});
+  commit(()=>{ f.el.forEach(i=>{ f.bets[i]=betClamp(f.bets[i],i); }); G.phase='finalQ'; startTimer(G.timeFinal);});
 }
 function finalToJudge(){commit(()=>{G.phase='finalJudge'; stopTimer();});}
 function finalConfirm(){
@@ -2537,14 +2536,14 @@ function finalBetsView(){
   return h('div',{class:'center-col'},
     h('h2',{text:'Finále · sázky'}),
     t.name!=='Finále'&&h('div',{class:'qhead'},h('span',{class:'qtheme',text:t.name})),
-    h('p',{class:'muted',text:'Každý finalista tajně vsadí 1 až tolik bodů, kolik má. Host zadá sázky a otázka se pak zobrazí.'}),
+    h('p',{class:'muted',text:'Každý finalista tajně vsadí 0 (nesází nic) až tolik bodů, kolik má, vždy po celých tisících. Host zadá sázky a otázka se pak zobrazí.'}),
     f.el.map(i=>{
       const p=G.players[i];
       return h('div',{class:'bet-row'},h('b',{class:'rn'},avatar(G.players[i].icon,i,'sm'),' ',pname(i)),h('span',{class:'muted',text:'body: '+fmt(p.score)}),
-        numField(f.bets[i]||1,1,p.score,100,v=>{f.bets[i]=v;persist();}),
-        h('button',{class:'btn sm',onclick:()=>tweak(()=>{f.bets[i]=clamp((Number(f.bets[i])||1)-1000,1,p.score);})},'−1000'),
-        h('button',{class:'btn sm',onclick:()=>tweak(()=>{f.bets[i]=clamp((Number(f.bets[i])||1)+1000,1,p.score);})},'+1000'),
-        h('button',{class:'btn sm',onclick:()=>tweak(()=>{f.bets[i]=p.score;})},'Vabank'));
+        numField(f.bets[i]||0,0,betMax(i),1000,v=>tweak(()=>{f.bets[i]=betClamp(v,i);})),
+        h('button',{class:'btn sm',onclick:()=>tweak(()=>{f.bets[i]=betClamp((Number(f.bets[i])||0)-1000,i);})},'−1000'),
+        h('button',{class:'btn sm',onclick:()=>tweak(()=>{f.bets[i]=betClamp((Number(f.bets[i])||0)+1000,i);})},'+1000'),
+        h('button',{class:'btn sm',onclick:()=>tweak(()=>{f.bets[i]=betMax(i);})},'Vabank'),h('button',{class:'btn sm',onclick:()=>tweak(()=>{f.bets[i]=0;})},'Nesázím'));
     }),
     h('button',{class:'btn primary big',onclick:finalToQuestion},'Zobrazit otázku'));
 }
